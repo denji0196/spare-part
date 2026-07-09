@@ -439,45 +439,103 @@ async function enterApp(){
   showOnly('appScreen');
   $('adminBtn').classList.toggle('hidden', profile.role!=='admin');
   if(profile.role==='admin') refreshPending();
-  if(!partsLoaded){ await loadParts(); }
-  else { $('partsLoader').classList.add('hidden'); $('searchArea').classList.remove('hidden'); }
+  if(partsLoaded){ $('partsLoader').classList.add('hidden'); $('searchArea').classList.remove('hidden'); return; }
+  await loadParts();
 }
 
-async function loadParts(){
-  $('partsLoader').classList.remove('hidden');
-  $('searchArea').classList.add('hidden');
-  const pageSize=1000; let from=0; const all=[];
-  // get total for progress
-  const { count } = await sb.from('parts').select('id',{count:'exact',head:true});
-  const total = count||20000;
-  try{
-    while(true){
-      const { data, error } = await sb.from('parts')
-        .select('code,model,part,descr,equiv,brand,store,shelf,qty,price')
-        .order('id',{ascending:true}).range(from, from+pageSize-1);
-      if(error) throw error;
-      for(const r of data){ all.push(r); }
-      const pc=Math.min(100,Math.round(all.length/total*100));
-      $('loadBar').style.width=pc+'%'; $('loadPc').textContent=pc+'%';
-      if(data.length<pageSize) break;
-      from+=pageSize;
-    }
-  }catch(err){
-    $('partsLoader').innerHTML='<div class="msg err" style="max-width:420px;margin:0 auto">โหลดข้อมูลไม่สำเร็จ: '+err.message+'</div>';
-    return;
-  }
-  PARTS = all;
-  for(const p of PARTS){
+/* ---- IndexedDB cache (เก็บข้อมูลอะไหล่ไว้ในเครื่อง ให้เข้าครั้งต่อไปขึ้นทันที) ---- */
+const CACHE_KEY='parts_v1';
+function idbOpen(){ return new Promise((res,rej)=>{ const r=indexedDB.open('sparepart',1);
+  r.onupgradeneeded=()=>r.result.createObjectStore('kv'); r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); }); }
+async function idbGet(k){ try{ const db=await idbOpen(); return await new Promise((res,rej)=>{ const q=db.transaction('kv','readonly').objectStore('kv').get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }catch(e){ return null; } }
+async function idbSet(k,v){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const q=db.transaction('kv','readwrite').objectStore('kv').put(v,k); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }catch(e){} }
+async function idbDel(k){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const q=db.transaction('kv','readwrite').objectStore('kv').delete(k); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }catch(e){} }
+
+function prepParts(rows){
+  for(const p of rows){
     p.desc=p.descr;
     p._m=(p.model||'').toLowerCase(); p._p=(p.part||'').toLowerCase();
     p._c=(p.code||'').toLowerCase();  p._b=(p.brand||'').toLowerCase();
     p._d=(p.desc||'').toLowerCase();
   }
-  partsLoaded=true;
-  $('cnt').textContent='· '+PARTS.length.toLocaleString('en-US')+' รายการ';
+  return rows;
+}
+function activateSearch(rows){
+  PARTS=rows; partsLoaded=true;
+  $('cnt').innerHTML='· '+PARTS.length.toLocaleString('en-US')+' รายการ '
+    +'<a id="refreshLink" style="cursor:pointer;color:var(--muted);text-decoration:underline;margin-left:6px">โหลดใหม่</a>';
+  $('refreshLink').onclick=async()=>{ await idbDel(CACHE_KEY); partsLoaded=false; PARTS=[]; await loadParts(); };
   $('partsLoader').classList.add('hidden');
   $('searchArea').classList.remove('hidden');
   $('q').focus();
+}
+function flash(text){
+  const n=document.createElement('div');
+  n.textContent=text;
+  n.style.cssText='position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:var(--graphite);color:#EEF1F4;font-family:var(--mono);font-size:12px;padding:9px 16px;border-radius:3px;z-index:200;box-shadow:0 8px 24px -8px rgba(0,0,0,.4)';
+  document.body.appendChild(n); setTimeout(()=>n.remove(),2600);
+}
+
+async function serverCount(){
+  const { count, error } = await sb.from('parts').select('id',{count:'exact',head:true});
+  if(error) throw error; return count||0;
+}
+
+/* ดึงทุกหน้าพร้อมกันเป็นชุดๆ (ขนาน) แทนการรอทีละหน้า */
+async function fetchAllRows(total, onProgress){
+  const pageSize=1000, pages=Math.max(1,Math.ceil(total/pageSize)), BATCH=10;
+  const rows=[]; let done=0;
+  for(let start=0; start<pages; start+=BATCH){
+    const reqs=[];
+    for(let i=start;i<Math.min(start+BATCH,pages);i++){
+      const from=i*pageSize;
+      reqs.push(sb.from('parts')
+        .select('code,model,part,descr,equiv,brand,store,shelf,qty,price')
+        .order('id',{ascending:true}).range(from, from+pageSize-1));
+    }
+    const res=await Promise.all(reqs);
+    for(const r of res){ if(r.error) throw r.error; for(const x of r.data) rows.push(x); done++; if(onProgress) onProgress(done/pages); }
+  }
+  return rows;
+}
+
+async function loadParts(){
+  // 1) มี cache ในเครื่อง -> แสดงทันที แล้วเช็คความใหม่เบื้องหลัง
+  const cache=await idbGet(CACHE_KEY);
+  if(cache && cache.rows && cache.rows.length){
+    activateSearch(prepParts(cache.rows));
+    verifyFresh(cache.count);
+    return;
+  }
+  // 2) ไม่มี cache -> โหลดเต็มพร้อมแถบความคืบหน้า
+  await fullFetch();
+}
+
+async function fullFetch(){
+  $('partsLoader').classList.remove('hidden'); $('searchArea').classList.add('hidden');
+  $('loadBar').style.width='0%'; $('loadPc').textContent='0%';
+  let total, rows;
+  try{
+    total=await serverCount();
+    rows=await fetchAllRows(total, f=>{ const pc=Math.min(100,Math.round(f*100)); $('loadBar').style.width=pc+'%'; $('loadPc').textContent=pc+'%'; });
+  }catch(err){
+    $('partsLoader').innerHTML='<div class="msg err" style="max-width:420px;margin:0 auto">โหลดข้อมูลไม่สำเร็จ: '+err.message+'</div>';
+    return;
+  }
+  await idbSet(CACHE_KEY,{count:total, rows});
+  activateSearch(prepParts(rows));
+}
+
+async function verifyFresh(cachedCount){
+  let c; try{ c=await serverCount(); }catch(e){ return; }
+  if(c===cachedCount) return;               // ข้อมูลเท่าเดิม -> ใช้ cache ต่อ
+  try{                                        // เปลี่ยนแล้ว -> โหลดใหม่เงียบๆ แล้วสลับ
+    const rows=await fetchAllRows(c);
+    await idbSet(CACHE_KEY,{count:c, rows});
+    PARTS=prepParts(rows);
+    $('cnt').firstChild.textContent='· '+PARTS.length.toLocaleString('en-US')+' รายการ ';
+    flash('อัปเดตข้อมูลอะไหล่ล่าสุดแล้ว');
+  }catch(e){}
 }
 
 /* ---------- SEARCH ---------- */
