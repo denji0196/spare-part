@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ค้นหาอะไหล่ · Spare Part Lookup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#E9EBEE;--panel:#FFFFFF;--graphite:#15181C;--ink:#161A1E;--muted:#6C737C;--faint:#98A0A8;
+    --line:#D8DCE1;--line-strong:#C3C9D0;--amber:#F0A500;--green:#1E9D57;--green-bg:#E6F5EC;
+    --red:#B23B3B;--red-bg:#FBEBEB;--blue:#2E6BC6;--blue-bg:#E8F0FB;
+    --sans:'IBM Plex Sans Thai',system-ui,-apple-system,'Segoe UI',sans-serif;
+    --mono:'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:var(--sans);background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;line-height:1.5;display:flex;flex-direction:column;min-height:100vh}
+  .hidden{display:none !important}
+
+  /* ---------- Header ---------- */
+  header{background:var(--graphite);color:#EEF1F4;border-bottom:3px solid var(--amber);padding:14px 22px}
+  .head-inner{max-width:940px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+  .brand{display:flex;align-items:center;gap:12px}
+  .mark{width:32px;height:32px;flex:none;border:2px solid var(--amber);display:grid;place-items:center;font-family:var(--mono);font-weight:600;color:var(--amber);font-size:14px}
+  .title-th{font-size:18px;font-weight:600}
+  .title-en{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:2px;text-transform:uppercase}
+  .head-right{display:flex;align-items:center;gap:14px;font-family:var(--mono);font-size:12px}
+  .who{color:var(--faint);text-align:right;line-height:1.35}
+  .who b{color:#EEF1F4;font-weight:500}
+  .hbtn{font-family:var(--mono);font-size:12px;padding:7px 12px;border:1.5px solid #3A4048;background:transparent;color:#EEF1F4;border-radius:2px;cursor:pointer;letter-spacing:.3px}
+  .hbtn:hover{border-color:var(--amber);color:var(--amber)}
+  .hbtn.alert{border-color:var(--amber);color:var(--amber)}
+  .hbtn .pill{background:var(--amber);color:#15181C;border-radius:10px;padding:0 6px;margin-left:6px;font-weight:600}
+
+  main{flex:1;width:100%;max-width:940px;margin:0 auto;padding:26px 22px 60px}
+
+  /* ---------- Auth ---------- */
+  .auth-wrap{flex:1;display:flex;align-items:center;justify-content:center;padding:30px 20px}
+  .auth-card{width:100%;max-width:400px;background:var(--panel);border:1.5px solid var(--line-strong);border-radius:3px;overflow:hidden;box-shadow:0 20px 50px -24px rgba(20,24,28,.3)}
+  .auth-top{background:var(--graphite);color:#EEF1F4;padding:24px;border-bottom:3px solid var(--amber);text-align:center}
+  .auth-top .mark{margin:0 auto 12px;width:40px;height:40px;font-size:16px}
+  .auth-top h1{font-size:19px;font-weight:600}
+  .auth-top p{font-family:var(--mono);font-size:10px;color:var(--faint);letter-spacing:2px;text-transform:uppercase;margin-top:3px}
+  .auth-body{padding:24px}
+  .tabs{display:flex;border:1.5px solid var(--line-strong);border-radius:2px;margin-bottom:20px;overflow:hidden}
+  .tab{flex:1;text-align:center;padding:9px;font-size:14px;font-weight:500;cursor:pointer;background:var(--panel);color:var(--muted);border:none;font-family:var(--sans)}
+  .tab.on{background:var(--graphite);color:#fff}
+  .field{margin-bottom:14px}
+  .field label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px}
+  .field input{width:100%;font-family:var(--mono);font-size:14px;padding:11px 12px;border:1.5px solid var(--line-strong);border-radius:2px;outline:none;color:var(--ink);background:#fff}
+  .field input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,165,0,.16)}
+  .primary{width:100%;font-family:var(--sans);font-size:15px;font-weight:600;padding:12px;background:var(--amber);color:#15181C;border:none;border-radius:2px;cursor:pointer;margin-top:4px}
+  .primary:hover{background:#d99500}
+  .primary:disabled{opacity:.55;cursor:not-allowed}
+  .msg{font-size:13px;padding:10px 12px;border-radius:2px;margin-bottom:14px;line-height:1.45}
+  .msg.err{background:var(--red-bg);color:var(--red);border-left:3px solid var(--red)}
+  .msg.ok{background:var(--green-bg);color:#127544;border-left:3px solid var(--green)}
+  .msg.info{background:var(--blue-bg);color:#1d4f96;border-left:3px solid var(--blue)}
+
+  /* ---------- Status (pending / rejected) ---------- */
+  .state-card{max-width:440px;margin:0 auto;text-align:center;background:var(--panel);border:1.5px solid var(--line-strong);border-radius:3px;padding:40px 30px}
+  .state-ic{width:56px;height:56px;margin:0 auto 18px;border-radius:50%;display:grid;place-items:center}
+  .state-ic.wait{background:#FFF4D6;color:var(--amber-deep,#B87B00)}
+  .state-ic.no{background:var(--red-bg);color:var(--red)}
+  .state-card h2{font-size:20px;font-weight:600;margin-bottom:8px}
+  .state-card p{color:var(--muted);font-size:14px;margin-bottom:6px}
+  .state-card .em{font-family:var(--mono);font-size:13px;color:var(--ink);background:#F4F5F7;padding:3px 8px;border-radius:2px;display:inline-block;margin:6px 0 18px}
+
+  /* ---------- Search (reused) ---------- */
+  .search-label{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
+  .search-wrap{position:relative;margin-bottom:26px}
+  .search-box{position:relative}
+  .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
+  input#q{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
+  input#q::placeholder{color:var(--faint);font-weight:400}
+  input#q:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,165,0,.18)}
+  .dropdown{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:40;background:var(--panel);border:1.5px solid var(--line-strong);border-radius:2px;box-shadow:0 14px 34px -12px rgba(20,24,28,.32);max-height:min(58vh,440px);overflow-y:auto;display:none}
+  .dropdown.open{display:block}
+  .opt{display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
+  .opt:last-child{border-bottom:none}
+  .opt:hover,.opt.active{background:#FFF8E6}
+  .opt.active{box-shadow:inset 3px 0 0 var(--amber)}
+  .opt-model{font-family:var(--mono);font-size:14px;font-weight:600;word-break:break-word}
+  .opt-model mark{background:var(--amber);color:#15181C;padding:0 1px;border-radius:1px}
+  .opt-part{font-size:12.5px;color:var(--muted);grid-column:1;word-break:break-word}
+  .opt-meta{grid-column:2;grid-row:1 / span 2;text-align:right;font-family:var(--mono);font-size:12px;white-space:nowrap}
+  .opt-qty{font-weight:600}.opt-qty.in{color:var(--green)}.opt-qty.out{color:var(--red)}
+  .opt-price{color:var(--muted);font-size:11.5px;margin-top:2px}
+  .dd-foot{padding:8px 16px;font-family:var(--mono);font-size:11px;color:var(--faint);background:#F6F7F9;border-top:1px solid var(--line)}
+  .dd-empty{padding:22px 16px;text-align:center;color:var(--muted);font-size:14px}
+  .hint{text-align:center;padding:56px 24px;color:var(--muted);border:1.5px dashed var(--line-strong);border-radius:2px;background:rgba(255,255,255,.4)}
+  .hint .big{font-family:var(--mono);font-size:14px;color:var(--ink);margin-bottom:8px}
+  .hint kbd{font-family:var(--mono);font-size:12px;background:var(--panel);border:1px solid var(--line-strong);border-bottom-width:2px;border-radius:3px;padding:1px 7px}
+
+  .detail{display:none}.detail.show{display:block;animation:rise .2s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  .card{background:var(--panel);border:1.5px solid var(--line-strong);border-radius:2px;overflow:hidden}
+  .card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:20px;flex-wrap:wrap;padding:22px 24px;background:var(--graphite);color:#EEF1F4;border-bottom:3px solid var(--amber)}
+  .card-top .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:2px;text-transform:uppercase;color:var(--faint);margin-bottom:6px}
+  .model-name{font-family:var(--mono);font-size:26px;font-weight:600;word-break:break-word;line-height:1.2}
+  .card-code{font-family:var(--mono);font-size:12px;color:var(--amber);margin-top:8px;word-break:break-all}
+  .status{flex:none;text-align:right}
+  .badge{display:inline-flex;align-items:center;gap:7px;font-family:var(--mono);font-weight:600;font-size:13px;padding:7px 13px;border-radius:2px}
+  .badge .dot{width:8px;height:8px;border-radius:50%}
+  .badge.in{background:var(--green-bg);color:#127544}.badge.in .dot{background:var(--green)}
+  .badge.out{background:var(--red-bg);color:var(--red)}.badge.out .dot{background:var(--red)}
+  .stats{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid var(--line)}
+  .stat{padding:20px 24px}.stat + .stat{border-left:1px solid var(--line)}
+  .stat .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+  .stat .val{font-family:var(--mono);font-weight:600;font-size:30px;line-height:1}.stat .val.out{color:var(--red)}
+  .stat .unit{font-size:14px;color:var(--faint);font-weight:400;margin-left:5px}
+  .stat .baht{font-size:20px;color:var(--faint);font-weight:400;margin-right:4px}
+  .rows{padding:6px 24px 20px}
+  .row{display:grid;grid-template-columns:150px 1fr;gap:14px;padding:11px 0;border-bottom:1px solid var(--line);align-items:baseline}
+  .row:last-child{border-bottom:none}
+  .row .k{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted)}
+  .row .v{font-size:14.5px;word-break:break-word}.row .v.mono{font-family:var(--mono);font-size:13.5px}
+  .row .v .none{color:var(--faint)}
+  .loc-tag{display:inline-flex;font-family:var(--mono);border:1.5px solid var(--graphite);border-radius:2px;overflow:hidden}
+  .loc-tag .lt-store{background:var(--graphite);color:var(--amber);padding:4px 9px;font-size:11px;font-weight:600;display:flex;align-items:center}
+  .loc-tag .lt-shelf{padding:4px 11px;font-size:13px;font-weight:600;letter-spacing:1px;display:flex;align-items:center}
+
+  .loader{text-align:center;padding:60px 20px;color:var(--muted)}
+  .loader .bar{height:4px;background:var(--line);border-radius:2px;max-width:260px;margin:16px auto 0;overflow:hidden}
+  .loader .bar i{display:block;height:100%;background:var(--amber);width:0;transition:width .2s}
+  .loader .pc{font-family:var(--mono);font-size:12px;margin-top:8px}
+
+  /* ---------- Admin overlay ---------- */
+  .overlay{position:fixed;inset:0;background:rgba(21,24,28,.55);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow-y:auto}
+  .overlay.open{display:flex}
+  .admin{width:100%;max-width:720px;background:var(--panel);border-radius:3px;overflow:hidden}
+  .admin-top{background:var(--graphite);color:#EEF1F4;padding:18px 22px;display:flex;justify-content:space-between;align-items:center;border-bottom:3px solid var(--amber)}
+  .admin-top h2{font-size:17px;font-weight:600}
+  .admin-top .x{background:none;border:1.5px solid #3A4048;color:#EEF1F4;width:30px;height:30px;border-radius:2px;cursor:pointer;font-size:16px}
+  .admin-body{padding:0 0 8px}
+  .sec-h{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);padding:16px 22px 8px}
+  .urow{display:flex;align-items:center;gap:12px;padding:12px 22px;border-top:1px solid var(--line)}
+  .urow .uinfo{flex:1;min-width:0}
+  .urow .un{font-weight:500;font-size:14px}
+  .urow .ue{font-family:var(--mono);font-size:12px;color:var(--muted);word-break:break-all}
+  .chip{font-family:var(--mono);font-size:10px;padding:3px 7px;border-radius:2px;letter-spacing:.5px;text-transform:uppercase;font-weight:600;white-space:nowrap}
+  .chip.pending{background:#FFF4D6;color:#8a6300}
+  .chip.approved{background:var(--green-bg);color:#127544}
+  .chip.rejected{background:var(--red-bg);color:var(--red)}
+  .chip.admin{background:#EAE4FB;color:#5a3fb0}
+  .uact{display:flex;gap:6px}
+  .sbtn{font-family:var(--sans);font-size:12.5px;font-weight:500;padding:6px 11px;border-radius:2px;cursor:pointer;border:1.5px solid}
+  .sbtn.ap{border-color:var(--green);color:#127544;background:#fff}.sbtn.ap:hover{background:var(--green-bg)}
+  .sbtn.rj{border-color:var(--red);color:var(--red);background:#fff}.sbtn.rj:hover{background:var(--red-bg)}
+  .sbtn:disabled{opacity:.5;cursor:default}
+  .empty-note{padding:18px 22px;color:var(--faint);font-size:13px;border-top:1px solid var(--line)}
+
+  .setup-note{max-width:560px;margin:40px auto;background:#FFF9E9;border:1.5px solid var(--amber);border-radius:3px;padding:24px}
+  .setup-note h2{font-size:17px;margin-bottom:10px}
+  .setup-note code{font-family:var(--mono);font-size:12px;background:#fff;border:1px solid var(--line);padding:2px 5px;border-radius:2px}
+  .setup-note ol{margin:12px 0 0 18px;font-size:14px;line-height:1.7}
+
+  footer{text-align:center;padding:20px;font-family:var(--mono);font-size:11px;color:var(--faint)}
+  @media(max-width:560px){.stats{grid-template-columns:1fr}.stat + .stat{border-left:none;border-top:1px solid var(--line)}.row{grid-template-columns:1fr;gap:3px}.model-name{font-size:21px}.who{display:none}}
+</style>
+</head>
+<body>
+
+<!-- ============ HEADER ============ -->
+<header id="appHeader" class="hidden">
+  <div class="head-inner">
+    <div class="brand">
+      <div class="mark">SP</div>
+      <div><div class="title-th">ค้นหาอะไหล่</div><div class="title-en">Spare Part Lookup</div></div>
+    </div>
+    <div class="head-right">
+      <button id="adminBtn" class="hbtn alert hidden">ผู้ใช้รออนุมัติ<span class="pill" id="pendPill">0</span></button>
+      <div class="who">เข้าสู่ระบบ<br><b id="whoName">—</b></div>
+      <button id="logoutBtn" class="hbtn">ออกจากระบบ</button>
+    </div>
+  </div>
+</header>
+
+<!-- ============ AUTH SCREEN ============ -->
+<div id="authScreen" class="auth-wrap hidden">
+  <div class="auth-card">
+    <div class="auth-top">
+      <div class="mark">SP</div>
+      <h1>ค้นหาอะไหล่</h1>
+      <p>Spare Part Lookup</p>
+    </div>
+    <div class="auth-body">
+      <div class="tabs">
+        <button class="tab on" id="tabLogin">เข้าสู่ระบบ</button>
+        <button class="tab" id="tabReg">สมัครสมาชิก</button>
+      </div>
+      <div id="authMsg"></div>
+      <div class="field">
+        <label>รหัสพนักงาน</label>
+        <input id="fEmp" type="text" inputmode="numeric" autocomplete="username" placeholder="เช่น 7199">
+      </div>
+      <div class="field" id="nameField" style="display:none">
+        <label>ชื่อ–สกุล (ไม่บังคับ)</label>
+        <input id="fName" type="text" autocomplete="name" placeholder="ชื่อของคุณ">
+      </div>
+      <div class="field">
+        <label>รหัสผ่าน</label>
+        <input id="fPass" type="password" autocomplete="current-password" placeholder="อย่างน้อย 6 ตัวอักษร">
+      </div>
+      <button class="primary" id="submitBtn">เข้าสู่ระบบ</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ PENDING / REJECTED ============ -->
+<main id="stateScreen" class="hidden">
+  <div class="state-card" id="pendingCard">
+    <div class="state-ic wait">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    </div>
+    <h2>บัญชีของคุณรอการอนุมัติ</h2>
+    <p>สมัครสำเร็จแล้ว แต่ต้องให้ผู้ดูแลระบบอนุมัติก่อนจึงจะเข้าใช้งานได้</p>
+    <div class="em" id="pendEmail"></div>
+    <p style="font-size:13px">ลองเข้าสู่ระบบอีกครั้งหลังได้รับการอนุมัติ</p>
+  </div>
+  <div class="state-card hidden" id="rejectedCard">
+    <div class="state-ic no">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>
+    </div>
+    <h2>บัญชีนี้ไม่ได้รับอนุมัติ</h2>
+    <p>กรุณาติดต่อผู้ดูแลระบบ หากคิดว่าเป็นข้อผิดพลาด</p>
+    <div class="em" id="rejEmail"></div>
+  </div>
+</main>
+
+<!-- ============ SETUP NOTICE (ยังไม่ตั้งค่า Supabase) ============ -->
+<div id="setupScreen" class="hidden">
+  <div class="setup-note">
+    <h2>⚙️ ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h2>
+    <p style="font-size:14px;color:var(--muted)">เปิดไฟล์นี้ด้วย text editor แล้วกรอกค่า <code>SUPABASE_URL</code> และ <code>SUPABASE_ANON_KEY</code> ที่ส่วนบนสุดของ &lt;script&gt;</p>
+    <ol>
+      <li>สร้างโปรเจกต์ที่ <code>supabase.com</code></li>
+      <li>ไปที่ Project Settings → API เพื่อคัดลอก URL และ anon key</li>
+      <li>ทำตามไฟล์ <code>SETUP-GUIDE.md</code> ให้ครบ</li>
+    </ol>
+  </div>
+</div>
+
+<!-- ============ APP (SEARCH) ============ -->
+<main id="appScreen" class="hidden">
+  <div id="partsLoader" class="loader">
+    <div>กำลังโหลดข้อมูลอะไหล่…</div>
+    <div class="bar"><i id="loadBar"></i></div>
+    <div class="pc" id="loadPc">0%</div>
+  </div>
+
+  <div id="searchArea" class="hidden">
+    <div class="search-wrap">
+      <label class="search-label" for="q">พิมพ์โมเดล / ชื่อพาร์ท / รหัส SAP <span id="cnt" style="color:var(--faint)"></span></label>
+      <div class="search-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="เช่น  E2E-X2D1-N  หรือ  proximity switch" role="combobox" aria-expanded="false">
+      </div>
+      <div class="dropdown" id="dd" role="listbox"></div>
+    </div>
+
+    <div class="hint" id="hint">
+      <div class="big">เริ่มพิมพ์เพื่อค้นหาอะไหล่</div>
+      <div>เลือกจากรายการ แล้วดูจำนวนในสต็อกและราคา · ใช้ <kbd>↑</kbd> <kbd>↓</kbd> เลื่อน <kbd>Enter</kbd> เลือก</div>
+    </div>
+
+    <div class="detail" id="detail">
+      <div class="card">
+        <div class="card-top">
+          <div>
+            <div class="lbl">Model</div>
+            <div class="model-name" id="d-model"></div>
+            <div class="card-code" id="d-code"></div>
+          </div>
+          <div class="status"><span class="badge" id="d-badge"><span class="dot"></span><span id="d-badge-text"></span></span></div>
+        </div>
+        <div class="stats">
+          <div class="stat"><div class="lbl">จำนวนในสต็อก · In Stock</div><div class="val" id="d-qty"></div></div>
+          <div class="stat"><div class="lbl">ราคา / ชิ้น · Price per pcs</div><div class="val" id="d-price"></div></div>
+        </div>
+        <div class="rows">
+          <div class="row"><div class="k">Part Name</div><div class="v" id="d-part"></div></div>
+          <div class="row"><div class="k">Description</div><div class="v" id="d-desc"></div></div>
+          <div class="row"><div class="k">Brand</div><div class="v mono" id="d-brand"></div></div>
+          <div class="row"><div class="k">Location</div><div class="v" id="d-loc"></div></div>
+          <div class="row"><div class="k">SAP Code</div><div class="v mono" id="d-sap"></div></div>
+          <div class="row" id="d-equiv-row"><div class="k">รุ่นเทียบเท่า</div><div class="v" id="d-equiv"></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<!-- ============ ADMIN OVERLAY ============ -->
+<div class="overlay" id="adminOverlay">
+  <div class="admin">
+    <div class="admin-top">
+      <h2>จัดการผู้ใช้</h2>
+      <button class="x" id="adminClose">✕</button>
+    </div>
+    <div class="admin-body" id="adminBody"></div>
+  </div>
+</div>
+
+<footer>ข้อมูลจากไฟล์ MC Spare Part · July 2026 (SAP)</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+/* ============================================================
+   ①  ตั้งค่าการเชื่อมต่อ Supabase ที่นี่
+       (คัดลอกจาก Supabase → Project Settings → API)
+   ============================================================ */
+const SUPABASE_URL      = 'https://dfzyuedkdgxlquekmjih.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmenl1ZWRrZGd4bHF1ZWttamloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzU5NjksImV4cCI6MjA5OTE1MTk2OX0.mDNr2YENU5u3b1i94_wmWfTnZoUKRy3Qa1ouDWiDHig';
+// โดเมนภายในสำหรับแปลงรหัสพนักงานเป็นอีเมล (ผู้ใช้ไม่ต้องรู้ค่านี้)
+// เช่น รหัส 7199 -> 7199@spare.local  ถ้าสมัครแล้วขึ้น "invalid email" ให้เปลี่ยนเป็นโดเมนบริษัท เช่น 'yourcompany.com'
+const EMP_DOMAIN        = 'spare.local';
+/* ============================================================ */
+
+const configured = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON');
+const $ = id => document.getElementById(id);
+let sb=null, profile=null, PARTS=[];
+
+function showOnly(id){
+  ['authScreen','stateScreen','appScreen','setupScreen'].forEach(s=>$(s).classList.add('hidden'));
+  $('appHeader').classList.toggle('hidden', !(id==='appScreen'||id==='stateScreen'));
+  $(id).classList.remove('hidden');
+}
+
+if(!configured){
+  showOnly('setupScreen');
+}else{
+  sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  boot();
+}
+
+async function boot(){
+  const { data:{ session } } = await sb.auth.getSession();
+  await route(session);
+  sb.auth.onAuthStateChange((_e, session)=>route(session));
+}
+
+async function route(session){
+  if(!session){ profile=null; showAuth('login'); return; }
+  // fetch profile (retry briefly: trigger may lag right after signup)
+  profile = await fetchProfile(session.user.id);
+  if(!profile){ showAuth('login','ไม่พบข้อมูลบัญชี ลองเข้าสู่ระบบใหม่อีกครั้ง','err'); return; }
+  $('whoName').textContent = profile.employee_id
+      ? ('รหัส '+profile.employee_id + (profile.full_name?' · '+profile.full_name:''))
+      : (profile.full_name || profile.email);
+  if(profile.status==='approved'){ enterApp(); }
+  else if(profile.status==='rejected'){ showState('rejected'); }
+  else { showState('pending'); }
+}
+
+async function fetchProfile(uid){
+  for(let i=0;i<4;i++){
+    const { data } = await sb.from('profiles').select('*').eq('id',uid).maybeSingle();
+    if(data) return data;
+    await new Promise(r=>setTimeout(r,500));
+  }
+  return null;
+}
+
+/* ---------- AUTH UI ---------- */
+let mode='login';
+function showAuth(m, message, kind){
+  showOnly('authScreen');
+  setMode(m);
+  $('authMsg').innerHTML = message ? `<div class="msg ${kind||'info'}">${message}</div>` : '';
+}
+function setMode(m){
+  mode=m;
+  $('tabLogin').classList.toggle('on',m==='login');
+  $('tabReg').classList.toggle('on',m==='register');
+  $('nameField').style.display = m==='register'?'block':'none';
+  $('submitBtn').textContent = m==='register'?'สมัครสมาชิก':'เข้าสู่ระบบ';
+  $('fPass').autocomplete = m==='register'?'new-password':'current-password';
+}
+$('tabLogin').onclick=()=>{ setMode('login'); $('authMsg').innerHTML=''; };
+$('tabReg').onclick  =()=>{ setMode('register'); $('authMsg').innerHTML=''; };
+
+function authMsg(text,kind){ $('authMsg').innerHTML = `<div class="msg ${kind}">${text}</div>`; }
+
+$('submitBtn').onclick = async ()=>{
+  const emp  = $('fEmp').value.trim();
+  const pass = $('fPass').value;
+  const name = $('fName').value.trim();
+  if(!emp || !pass){ authMsg('กรุณากรอกรหัสพนักงานและรหัสผ่าน','err'); return; }
+  if(/[\s@]/.test(emp)){ authMsg('รหัสพนักงานต้องไม่มีช่องว่างหรือเครื่องหมาย @','err'); return; }
+  if(mode==='register' && pass.length<6){ authMsg('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร','err'); return; }
+  const email = emp.toLowerCase() + '@' + EMP_DOMAIN;
+  $('submitBtn').disabled=true;
+  try{
+    if(mode==='register'){
+      const { data, error } = await sb.auth.signUp({ email, password:pass, options:{ data:{ full_name:name, employee_id:emp } } });
+      if(error) throw error;
+      if(!data.session){
+        // email confirmation is ON
+        authMsg('สมัครสำเร็จ! กรุณายืนยันอีเมลก่อน จากนั้นรอผู้ดูแลอนุมัติ','ok');
+      }
+      // ถ้ามี session -> onAuthStateChange จะพาไปหน้า "รออนุมัติ" เอง
+    }else{
+      const { error } = await sb.auth.signInWithPassword({ email, password:pass });
+      if(error) throw error;
+    }
+  }catch(err){
+    authMsg(translateErr(err.message), 'err');
+  }finally{
+    $('submitBtn').disabled=false;
+  }
+};
+function translateErr(m){
+  if(/Invalid login/i.test(m)) return 'รหัสพนักงานหรือรหัสผ่านไม่ถูกต้อง';
+  if(/already registered/i.test(m)) return 'รหัสพนักงานนี้ถูกใช้สมัครแล้ว ลองเข้าสู่ระบบแทน';
+  if(/at least/i.test(m)) return 'รหัสผ่านสั้นเกินไป (อย่างน้อย 6 ตัวอักษร)';
+  if(/invalid.*email|email.*invalid/i.test(m)) return 'ระบบไม่รับรหัสนี้ ลองแก้ค่า EMP_DOMAIN ในไฟล์ให้เป็นโดเมนบริษัท';
+  return m;
+}
+
+/* ---------- STATE screens ---------- */
+function showState(kind){
+  showOnly('stateScreen');
+  $('adminBtn').classList.add('hidden');
+  const em = profile.employee_id ? ('รหัสพนักงาน '+profile.employee_id) : (profile.email||'');
+  $('pendingCard').classList.toggle('hidden', kind!=='pending');
+  $('rejectedCard').classList.toggle('hidden', kind!=='rejected');
+  if(kind==='pending') $('pendEmail').textContent=em; else $('rejEmail').textContent=em;
+}
+
+$('logoutBtn').onclick = async ()=>{ await sb.auth.signOut(); };
+
+/* ---------- ENTER APP ---------- */
+let partsLoaded=false;
+async function enterApp(){
+  showOnly('appScreen');
+  $('adminBtn').classList.toggle('hidden', profile.role!=='admin');
+  if(profile.role==='admin') refreshPending();
+  if(!partsLoaded){ await loadParts(); }
+  else { $('partsLoader').classList.add('hidden'); $('searchArea').classList.remove('hidden'); }
+}
+
+async function loadParts(){
+  $('partsLoader').classList.remove('hidden');
+  $('searchArea').classList.add('hidden');
+  const pageSize=1000; let from=0; const all=[];
+  // get total for progress
+  const { count } = await sb.from('parts').select('id',{count:'exact',head:true});
+  const total = count||20000;
+  try{
+    while(true){
+      const { data, error } = await sb.from('parts')
+        .select('code,model,part,descr,equiv,brand,store,shelf,qty,price')
+        .order('id',{ascending:true}).range(from, from+pageSize-1);
+      if(error) throw error;
+      for(const r of data){ all.push(r); }
+      const pc=Math.min(100,Math.round(all.length/total*100));
+      $('loadBar').style.width=pc+'%'; $('loadPc').textContent=pc+'%';
+      if(data.length<pageSize) break;
+      from+=pageSize;
+    }
+  }catch(err){
+    $('partsLoader').innerHTML='<div class="msg err" style="max-width:420px;margin:0 auto">โหลดข้อมูลไม่สำเร็จ: '+err.message+'</div>';
+    return;
+  }
+  PARTS = all;
+  for(const p of PARTS){
+    p.desc=p.descr;
+    p._m=(p.model||'').toLowerCase(); p._p=(p.part||'').toLowerCase();
+    p._c=(p.code||'').toLowerCase();  p._b=(p.brand||'').toLowerCase();
+    p._d=(p.desc||'').toLowerCase();
+  }
+  partsLoaded=true;
+  $('cnt').textContent='· '+PARTS.length.toLocaleString('en-US')+' รายการ';
+  $('partsLoader').classList.add('hidden');
+  $('searchArea').classList.remove('hidden');
+  $('q').focus();
+}
+
+/* ---------- SEARCH ---------- */
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function money(n){ if(n===null||n===undefined||isNaN(n)) return '—'; return Number(n).toLocaleString('en-US',{minimumFractionDigits:0,maximumFractionDigits:2}); }
+function highlight(text,query){
+  const t=esc(text), i=text.toLowerCase().indexOf(query);
+  if(i<0||!query) return t;
+  return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+query.length))+'</mark>'+esc(text.slice(i+query.length));
+}
+let results=[], active=-1;
+function search(raw){
+  const query=raw.trim().toLowerCase(); if(!query) return [];
+  const out=[];
+  for(const p of PARTS){
+    let s;
+    if(p._m===query)s=0; else if(p._m.startsWith(query))s=1; else if(p._m.includes(query))s=2;
+    else if(p._c.includes(query))s=3; else if(p._p.includes(query))s=4;
+    else if(p._b.includes(query))s=5; else if(p._d.includes(query))s=6; else continue;
+    out.push([s,p]);
+  }
+  out.sort((a,b)=>a[0]-b[0]||(Number(b[1].qty)||0)-(Number(a[1].qty)||0)||a[1]._m.localeCompare(b[1]._m));
+  return out.slice(0,50).map(x=>x[1]);
+}
+function renderDD(query){
+  const dd=$('dd');
+  if(!results.length){
+    if(query.trim()){ dd.innerHTML='<div class="dd-empty">ไม่พบอะไหล่ที่ตรงกับ “'+esc(query.trim())+'”</div>'; dd.classList.add('open'); }
+    else closeDD();
+    return;
+  }
+  const ql=query.trim().toLowerCase(); let html='';
+  results.forEach((p,idx)=>{
+    const inS=(Number(p.qty)||0)>0;
+    html+='<div class="opt'+(idx===active?' active':'')+'" role="option" data-i="'+idx+'">'
+      +'<div class="opt-model">'+highlight(p.model||'—',ql)+'</div>'
+      +'<div class="opt-part">'+esc(p.part||p.desc||'')+(p.brand?' · '+esc(p.brand):'')+'</div>'
+      +'<div class="opt-meta"><div class="opt-qty '+(inS?'in':'out')+'">'+(inS?p.qty+' ชิ้น':'หมด')+'</div>'
+      +'<div class="opt-price">฿ '+money(p.price)+'</div></div></div>';
+  });
+  html+='<div class="dd-foot">แสดง '+results.length+' รายการ'+(results.length>=50?' (สูงสุด 50)':'')+'</div>';
+  dd.innerHTML=html; dd.classList.add('open');
+}
+function closeDD(){ $('dd').classList.remove('open'); active=-1; }
+
+let tmr;
+document.addEventListener('input',e=>{
+  if(e.target.id!=='q')return;
+  clearTimeout(tmr);
+  tmr=setTimeout(()=>{ results=search($('q').value); active=-1; renderDD($('q').value); },90);
+});
+document.addEventListener('mousedown',e=>{
+  const opt=e.target.closest('#dd .opt'); if(opt){ e.preventDefault(); pick(+opt.dataset.i); }
+});
+document.addEventListener('keydown',e=>{
+  if(e.target.id!=='q'||!$('dd').classList.contains('open')||!results.length)return;
+  if(e.key==='ArrowDown'){e.preventDefault();active=Math.min(active+1,results.length-1);paintDD();}
+  else if(e.key==='ArrowUp'){e.preventDefault();active=Math.max(active-1,0);paintDD();}
+  else if(e.key==='Enter'){e.preventDefault();pick(active>=0?active:0);}
+  else if(e.key==='Escape'){closeDD();}
+});
+function paintDD(){ [...document.querySelectorAll('#dd .opt')].forEach((el,i)=>{ el.classList.toggle('active',i===active); if(i===active)el.scrollIntoView({block:'nearest'}); }); }
+document.addEventListener('click',e=>{ if(!e.target.closest('.search-wrap')) closeDD(); });
+
+function pick(i){ const p=results[i]; if(!p)return; $('q').value=p.model||''; closeDD(); showDetail(p); }
+function showDetail(p){
+  const inS=(Number(p.qty)||0)>0;
+  $('d-model').textContent=p.model||'—';
+  $('d-code').textContent=p.code||'';
+  $('d-badge').className='badge '+(inS?'in':'out');
+  $('d-badge-text').textContent=inS?'มีในสต็อก':'หมดสต็อก';
+  const qEl=$('d-qty'); qEl.className='val'+(inS?'':' out'); qEl.innerHTML=(p.qty??0)+'<span class="unit">ชิ้น</span>';
+  $('d-price').innerHTML='<span class="baht">฿</span>'+money(p.price);
+  $('d-part').textContent=p.part||'—';
+  $('d-desc').innerHTML=p.desc?esc(p.desc):'<span class="none">—</span>';
+  $('d-brand').textContent=p.brand||'—';
+  const loc=$('d-loc');
+  loc.innerHTML=(p.store||p.shelf)?'<span class="loc-tag"><span class="lt-store">'+esc(p.store||'STORE')+'</span><span class="lt-shelf">'+esc(p.shelf||'—')+'</span></span>':'<span class="none">—</span>';
+  $('d-sap').textContent=p.code||'—';
+  const er=$('d-equiv-row');
+  if(p.equiv){ $('d-equiv').textContent=p.equiv; er.style.display=''; } else er.style.display='none';
+  $('hint').style.display='none';
+  $('detail').classList.add('show');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+/* ---------- ADMIN ---------- */
+$('adminBtn').onclick=()=>{ $('adminOverlay').classList.add('open'); loadAdmin(); };
+$('adminClose').onclick=()=>$('adminOverlay').classList.remove('open');
+$('adminOverlay').onclick=e=>{ if(e.target.id==='adminOverlay') $('adminOverlay').classList.remove('open'); };
+
+async function refreshPending(){
+  const { count } = await sb.from('profiles').select('id',{count:'exact',head:true}).eq('status','pending');
+  $('pendPill').textContent=count||0;
+  $('adminBtn').classList.toggle('hidden', profile.role!=='admin');
+}
+
+async function loadAdmin(){
+  $('adminBody').innerHTML='<div class="empty-note">กำลังโหลด…</div>';
+  const { data, error } = await sb.from('profiles').select('*').order('created_at',{ascending:false});
+  if(error){ $('adminBody').innerHTML='<div class="empty-note">โหลดไม่สำเร็จ: '+error.message+'</div>'; return; }
+  const pending=data.filter(u=>u.status==='pending');
+  const others =data.filter(u=>u.status!=='pending');
+  let html='<div class="sec-h">รออนุมัติ ('+pending.length+')</div>';
+  html+= pending.length? pending.map(u=>urow(u,true)).join('') : '<div class="empty-note">ไม่มีผู้ใช้รออนุมัติ</div>';
+  html+='<div class="sec-h">ผู้ใช้ทั้งหมด ('+others.length+')</div>';
+  html+= others.length? others.map(u=>urow(u,false)).join('') : '<div class="empty-note">—</div>';
+  $('adminBody').innerHTML=html;
+  bindAdmin();
+}
+function urow(u,pending){
+  const chips=`<span class="chip ${u.status}">${({pending:'รออนุมัติ',approved:'อนุมัติแล้ว',rejected:'ถูกปฏิเสธ'})[u.status]}</span>`+
+              (u.role==='admin'?'<span class="chip admin">admin</span>':'');
+  const me = u.id===profile.id;
+  let act='';
+  if(pending){
+    act=`<button class="sbtn ap" data-ap="${u.id}">อนุมัติ</button><button class="sbtn rj" data-rj="${u.id}">ปฏิเสธ</button>`;
+  }else if(!me){
+    if(u.status==='approved') act=`<button class="sbtn rj" data-rj="${u.id}">ระงับ</button>`;
+    else act=`<button class="sbtn ap" data-ap="${u.id}">อนุมัติ</button>`;
+  }else{
+    act=`<span class="chip admin">คุณ</span>`;
+  }
+  const title = esc(u.employee_id ? ('รหัส '+u.employee_id) : (u.email||'—'));
+  const sub = esc(u.full_name||'');
+  return `<div class="urow"><div class="uinfo"><div class="un">${title} ${chips}</div><div class="ue">${sub||'&nbsp;'}</div></div><div class="uact">${act}</div></div>`;
+}
+function bindAdmin(){
+  document.querySelectorAll('[data-ap]').forEach(b=>b.onclick=()=>setStatus(b.dataset.ap,'approved',b));
+  document.querySelectorAll('[data-rj]').forEach(b=>b.onclick=()=>setStatus(b.dataset.rj,'rejected',b));
+}
+async function setStatus(uid,status,btn){
+  btn.disabled=true;
+  const { error } = await sb.from('profiles').update({status}).eq('id',uid);
+  if(error){ alert('ทำรายการไม่สำเร็จ: '+error.message); btn.disabled=false; return; }
+  await loadAdmin(); await refreshPending();
+}
+</script>
+</body>
+</html>
