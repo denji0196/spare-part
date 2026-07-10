@@ -109,9 +109,9 @@
   .cmp-summary{background:#F6F7F9;border:1px solid var(--line);border-radius:2px;padding:14px 16px;font-size:14px;line-height:1.6;margin-bottom:14px}
   .cmp-disclaimer{background:var(--red-bg);border-left:3px solid var(--red);border-radius:2px;padding:11px 14px;font-size:12.5px;color:#7a2b2b;line-height:1.55;margin-top:16px}
   .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
-  input#q{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
-  input#q::placeholder{color:var(--faint);font-weight:400}
-  input#q:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,165,0,.18)}
+  .search-box input{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
+  .search-box input::placeholder{color:var(--faint);font-weight:400}
+  .search-box input:focus{border-color:var(--amber);box-shadow:0 0 0 3px rgba(240,165,0,.18)}
   .dropdown{position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:40;background:var(--panel);border:1.5px solid var(--line-strong);border-radius:2px;box-shadow:0 14px 34px -12px rgba(20,24,28,.32);max-height:min(58vh,440px);overflow-y:auto;display:none}
   .dropdown.open{display:block}
   .opt{display:grid;grid-template-columns:1fr auto;gap:4px 14px;align-items:center;padding:11px 16px;border-bottom:1px solid var(--line);cursor:pointer}
@@ -1038,19 +1038,41 @@ function switchTab(t){
 $('cmpBtn').onclick=()=>compareModel();
 document.addEventListener('keydown',e=>{ if(e.target && e.target.id==='cmpInput' && e.key==='Enter'){ e.preventDefault(); compareModel(); } });
 
-// คัดตัวเลือกที่เกี่ยวข้องจากสต็อก: ตระกูลเดียวกัน (prefix) + ชนิดเดียวกัน (part name เดียวกัน ต่างยี่ห้อได้)
+// คัดตัวเลือกที่เกี่ยวข้องจากสต็อก (กว้างขึ้น): ตระกูลใกล้เคียง + ยี่ห้อ/prefix เดียวกัน + ชนิดเดียวกัน (คำในชื่อพาร์ท)
+const STOPWORDS=new Set(['FOR','THE','AND','WITH','TYPE','UNIT','SET','ASSY','PART','SPARE','NEW','OLD','SIZE','MODEL']);
+function partWords(s){ return (s||'').toUpperCase().split(/[^A-Z]+/).filter(w=>w.length>=4 && !STOPWORDS.has(w)); }
+function alphaPrefix(model){ const m=normKey(model).match(/^[A-Z]+[0-9]?/); return m?m[0]:''; }
+
 function compareCandidates(target){
-  const fam = search(target).slice(0,22);
   const map=new Map();
   const add=p=>{ const k=p.code+'|'+p.model+'|'+p.store+'|'+p.shelf; if(!map.has(k)) map.set(k,p); };
-  fam.forEach(add);
+  const fam=search(target); fam.slice(0,15).forEach(add);
   const anchor=fam[0];
-  if(anchor && anchor.part){
-    const pn=anchor.part.toLowerCase();
+  const nq=normKey(target);
+  const brand=(anchor&&anchor.brand||'').toLowerCase();
+  const pref=alphaPrefix(target);                 // เช่น EESX จาก EE-SX870
+  const words=partWords(anchor&&anchor.part||''); // เช่น PHOTO, SENSOR
+
+  // 1) ยี่ห้อเดียวกัน + prefix ตัวอักษรเดียวกัน (จับข้ามซีรีส์ เช่น EE-SX770 vs EE-SX870)
+  if(pref && pref.length>=3){
     let n=0;
-    for(const p of PARTS){ if(p.part && p.part.toLowerCase()===pn){ add(p); if(++n>=22) break; } }
+    for(const p of PARTS){
+      if(brand && (p.brand||'').toLowerCase()!==brand) continue;
+      if(normKey(p.model).startsWith(pref)){ add(p); if(++n>=25) break; }
+    }
   }
-  return [...map.values()].slice(0,40);
+  // 2) ชนิดเดียวกัน (ชื่อพาร์ทมีคำสำคัญร่วมกัน) — จับกรณีชื่อเขียนคนละแบบ
+  if(words.length){
+    let n=0;
+    for(const p of PARTS){
+      const pw=(p.part||'').toUpperCase();
+      if(words.some(w=>pw.includes(w))){
+        if(brand && (p.brand||'').toLowerCase()!==brand) continue; // จำกัดยี่ห้อเดียวกันก่อน กันกว้างเกิน
+        add(p); if(++n>=25) break;
+      }
+    }
+  }
+  return [...map.values()].slice(0,50);
 }
 
 async function compareModel(){
