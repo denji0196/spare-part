@@ -78,6 +78,36 @@
   .cam-btn:hover{background:#d99500}
   .cam-btn svg{flex:none}
   @media(max-width:560px){ .cam-btn span{display:none} .cam-btn{padding:0 14px} }
+
+  /* ---- app tabs ---- */
+  .app-tabs{display:flex;gap:0;border-bottom:2px solid var(--line-strong);margin-bottom:22px}
+  .app-tab{font-family:var(--sans);font-size:15px;font-weight:600;color:var(--muted);background:none;border:none;padding:10px 18px;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+  .app-tab.on{color:var(--ink);border-bottom-color:var(--amber)}
+  .app-tab:hover{color:var(--ink)}
+
+  /* ---- compare results ---- */
+  .cmp-target{background:var(--graphite);color:#EEF1F4;border-left:3px solid var(--amber);border-radius:2px;padding:14px 18px;margin-bottom:18px}
+  .cmp-target .lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--faint)}
+  .cmp-target .tv{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:3px;word-break:break-word}
+  .cmp-target .desc{font-size:13px;color:#c7ccd2;margin-top:6px}
+  .cmp-card{background:var(--panel);border:1.5px solid var(--line-strong);border-radius:2px;padding:16px 18px;margin-bottom:12px}
+  .cmp-card.top{border-color:var(--green);box-shadow:0 0 0 2px var(--green-bg)}
+  .cmp-head{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap}
+  .cmp-model{font-family:var(--mono);font-size:16px;font-weight:600;word-break:break-word}
+  .cmp-sub{font-size:12.5px;color:var(--muted);margin-top:2px}
+  .verdict{font-family:var(--mono);font-size:11px;font-weight:600;padding:4px 10px;border-radius:2px;white-space:nowrap;letter-spacing:.3px}
+  .verdict.exact{background:var(--green-bg);color:#127544}
+  .verdict.ok{background:var(--green-bg);color:#127544}
+  .verdict.partial{background:#FFF4D6;color:#8a6300}
+  .verdict.no{background:var(--red-bg);color:var(--red)}
+  .cmp-diff{font-size:14px;margin-top:11px;line-height:1.55}
+  .cmp-diff b{font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);font-weight:600;display:block;margin-bottom:3px}
+  .cmp-meta{display:flex;gap:16px;flex-wrap:wrap;margin-top:12px;padding-top:11px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12.5px}
+  .cmp-meta .mi{color:var(--muted)}
+  .cmp-meta .mi b{color:var(--ink);font-weight:600}
+  .cmp-meta .in{color:var(--green)} .cmp-meta .out{color:var(--red)}
+  .cmp-summary{background:#F6F7F9;border:1px solid var(--line);border-radius:2px;padding:14px 16px;font-size:14px;line-height:1.6;margin-bottom:14px}
+  .cmp-disclaimer{background:var(--red-bg);border-left:3px solid var(--red);border-radius:2px;padding:11px 14px;font-size:12.5px;color:#7a2b2b;line-height:1.55;margin-top:16px}
   .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
   input#q{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
   input#q::placeholder{color:var(--faint);font-weight:400}
@@ -257,6 +287,11 @@
     <div class="pc" id="loadPc">0%</div>
   </div>
 
+  <div id="appTabs" class="app-tabs hidden">
+    <button class="app-tab on" id="tabSearch">ค้นหาอะไหล่</button>
+    <button class="app-tab" id="tabCompare">เทียบรุ่น / หาตัวแทน</button>
+  </div>
+
   <div id="searchArea" class="hidden">
     <div class="search-wrap">
       <label class="search-label" for="q">พิมพ์โมเดล / ชื่อพาร์ท / รหัส SAP <span id="cnt" style="color:var(--faint)"></span></label>
@@ -303,6 +338,29 @@
         </div>
       </div>
     </div>
+  </div>
+
+  <div id="compareArea" class="hidden">
+    <label class="search-label">พิมพ์รุ่นที่ต้องการ แล้วให้ AI หาตัวที่ “แทนได้” จากในสต็อก พร้อมบอกจุดต่าง</label>
+    <div class="search-row">
+      <div class="search-box">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 3v4M8 7a3 3 0 0 0 0 6v8M16 21v-4M16 17a3 3 0 0 0 0-6V3"/></svg>
+        <input id="cmpInput" type="text" autocomplete="off" spellcheck="false" placeholder="เช่น  LCR-20-100-A5D  หรือ  E2E-X2D1-N">
+      </div>
+      <button id="cmpBtn" class="cam-btn"><span>เทียบรุ่น</span></button>
+    </div>
+
+    <div id="cmpBusy" class="loader hidden">
+      <div id="cmpBusyText">กำลังให้ AI วิเคราะห์…</div>
+      <div class="bar"><i id="cmpBar" style="width:40%"></i></div>
+    </div>
+
+    <div id="cmpHint" class="hint">
+      <div class="big">พิมพ์รุ่นที่ต้องการ แล้วกด “เทียบรุ่น”</div>
+      <div>ระบบจะคัดตัวที่เกี่ยวข้องจากสต็อก แล้วให้ AI บอกว่าตัวไหนแทนได้ + ต่างกันตรงไหน (ขนาด/สโตรก/ออปชัน/ไฟฟ้า ฯลฯ)</div>
+    </div>
+
+    <div id="cmpResult"></div>
   </div>
 </main>
 
@@ -376,6 +434,7 @@ if(SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-ANO
 }
 
 const configured = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON');
+const FN = 'clever-action';   // ชื่อ (slug) ของ Edge Function — ถ้า deploy เป็นชื่ออื่นให้แก้ตรงนี้
 const $ = id => document.getElementById(id);
 let sb=null, profile=null, PARTS=[];
 
@@ -536,6 +595,7 @@ function activateSearch(rows){
     +'<a id="refreshLink" style="cursor:pointer;color:var(--muted);text-decoration:underline;margin-left:6px">โหลดใหม่</a>';
   $('refreshLink').onclick=async()=>{ await idbDel(CACHE_KEY); partsLoaded=false; PARTS=[]; await loadParts(); };
   $('partsLoader').classList.add('hidden');
+  $('appTabs').classList.remove('hidden');
   $('searchArea').classList.remove('hidden');
   $('q').focus();
 }
@@ -835,9 +895,11 @@ function toJpegBase64(file, maxDim){
 async function cloudScan(file){
   setScanBusy('กำลังส่งรูปให้ AI อ่าน…');
   const { b64, mime }=await toJpegBase64(file, 1280);
+  let headers={};
+  try{ const { data:s }=await sb.auth.getSession(); const tk=s&&s.session&&s.session.access_token; if(tk) headers={ Authorization:'Bearer '+tk }; }catch(_){}
   let resp;
   try{
-    resp=await sb.functions.invoke('clever-action', { body:{ image:b64, mimeType:mime } });
+    resp=await sb.functions.invoke(FN, { body:{ image:b64, mimeType:mime }, headers });
   }catch(e){ const err=new Error('เรียก AI ไม่ได้'); err.reason='not_setup'; throw err; }
   const { data, error }=resp;
   if(error){
@@ -961,6 +1023,118 @@ function handleOcr(text, pre){
       results=search(best); active=-1; renderDD(best);
     };
   }
+}
+
+/* ---------- TAB: เทียบรุ่น / หาตัวแทน ---------- */
+$('tabSearch').onclick=()=>switchTab('search');
+$('tabCompare').onclick=()=>switchTab('compare');
+function switchTab(t){
+  const s=t==='search';
+  $('tabSearch').classList.toggle('on',s); $('tabCompare').classList.toggle('on',!s);
+  $('searchArea').classList.toggle('hidden',!s);
+  $('compareArea').classList.toggle('hidden',s);
+  if(s) $('q').focus(); else $('cmpInput').focus();
+}
+$('cmpBtn').onclick=()=>compareModel();
+document.addEventListener('keydown',e=>{ if(e.target && e.target.id==='cmpInput' && e.key==='Enter'){ e.preventDefault(); compareModel(); } });
+
+// คัดตัวเลือกที่เกี่ยวข้องจากสต็อก: ตระกูลเดียวกัน (prefix) + ชนิดเดียวกัน (part name เดียวกัน ต่างยี่ห้อได้)
+function compareCandidates(target){
+  const fam = search(target).slice(0,22);
+  const map=new Map();
+  const add=p=>{ const k=p.code+'|'+p.model+'|'+p.store+'|'+p.shelf; if(!map.has(k)) map.set(k,p); };
+  fam.forEach(add);
+  const anchor=fam[0];
+  if(anchor && anchor.part){
+    const pn=anchor.part.toLowerCase();
+    let n=0;
+    for(const p of PARTS){ if(p.part && p.part.toLowerCase()===pn){ add(p); if(++n>=22) break; } }
+  }
+  return [...map.values()].slice(0,40);
+}
+
+async function compareModel(){
+  const target=$('cmpInput').value.trim();
+  if(!target){ $('cmpInput').focus(); return; }
+  $('cmpHint').style.display='none';
+  $('cmpResult').innerHTML='';
+  $('cmpBusy').classList.remove('hidden');
+  $('cmpBusyText').textContent='กำลังคัดตัวเลือกจากสต็อก…';
+
+  const cands=compareCandidates(target);
+  if(!cands.length){
+    $('cmpBusy').classList.add('hidden');
+    $('cmpResult').innerHTML='<div class="hint"><div class="big">ไม่พบตัวเลือกที่เกี่ยวข้องในสต็อก</div><div>ลองพิมพ์รุ่นให้ใกล้เคียงกับที่มี หรือตรวจสะกดอีกครั้ง</div></div>';
+    return;
+  }
+  // map model -> part เพื่อ join สต็อก/ราคากลับ
+  const byModel=new Map(); cands.forEach(p=>byModel.set((p.model||'').toUpperCase(), p));
+  const payload=cands.map(p=>({ model:p.model, brand:p.brand, part:p.part, desc:p.desc }));
+
+  $('cmpBusyText').textContent='กำลังให้ AI วิเคราะห์ตัวแทน…';
+  let data, error;
+  try{
+    let headers={};
+    try{ const {data:s}=await sb.auth.getSession(); const tk=s&&s.session&&s.session.access_token; if(tk) headers={Authorization:'Bearer '+tk}; }catch(_){}
+    const r=await sb.functions.invoke(FN, { body:{ action:'compare', target, candidates:payload }, headers });
+    data=r.data; error=r.error;
+  }catch(e){ error=e; }
+  $('cmpBusy').classList.add('hidden');
+
+  if(error){
+    let msg=(error&&error.message)||String(error);
+    try{ if(error.context&&error.context.clone){ const b=await error.context.clone().json(); if(b&&b.error) msg=b.error; } }catch(_){}
+    $('cmpResult').innerHTML='<div class="msg err">เทียบรุ่นไม่สำเร็จ: '+esc(msg)+'</div>';
+    return;
+  }
+  if(data && data.error){ $('cmpResult').innerHTML='<div class="msg err">เทียบรุ่นไม่สำเร็จ: '+esc(data.error)+'</div>'; return; }
+  renderCompare(target, data||{}, byModel);
+}
+
+function verdictClass(v){
+  v=(v||'').toLowerCase();
+  if(v.indexOf('เป๊ะ')>=0||v.indexOf('ตรง')>=0||v==='exact') return ['exact','ตรงเป๊ะ'];
+  if(v.indexOf('บางส่วน')>=0||v.indexOf('partial')>=0) return ['partial','แทนได้บางส่วน'];
+  if(v.indexOf('ไม่')>=0||v==='no') return ['no','แทนไม่ได้'];
+  return ['ok','แทนได้'];
+}
+
+function renderCompare(target, data, byModel){
+  const results=Array.isArray(data.results)?data.results:[];
+  let html='';
+  html+='<div class="cmp-target"><div class="lbl">รุ่นที่ต้องการ</div><div class="tv">'+esc(target)+'</div>'
+      + (data.target_understood?('<div class="desc">'+esc(data.target_understood)+'</div>'):'')+'</div>';
+  if(data.summary) html+='<div class="cmp-summary">'+esc(data.summary)+'</div>';
+
+  if(!results.length){
+    html+='<div class="hint"><div class="big">AI ไม่พบตัวที่แทนได้ชัดเจนจากตัวเลือกในสต็อก</div><div>ลองพิมพ์รุ่นให้ตรงขึ้น หรือดูรายการค้นหาปกติในแท็บ “ค้นหาอะไหล่”</div></div>';
+  }else{
+    // เรียง: แทนได้ก่อน แทนไม่ได้ท้าย
+    const order={exact:0,ok:1,partial:2,no:3};
+    results.sort((a,b)=>order[verdictClass(a.verdict)[0]]-order[verdictClass(b.verdict)[0]]);
+    results.forEach((rr,idx)=>{
+      const [vc,vlabel]=verdictClass(rr.verdict);
+      const p=byModel.get((rr.model||'').toUpperCase());
+      const inS=p&&(Number(p.qty)||0)>0;
+      html+='<div class="cmp-card'+(idx===0&&(vc==='exact'||vc==='ok')?' top':'')+'">'
+        +'<div class="cmp-head"><div><div class="cmp-model">'+esc(rr.model||'—')+'</div>'
+        +'<div class="cmp-sub">'+esc((p&&p.brand)||rr.brand||'')+(p&&p.part?(' · '+esc(p.part)):'')+'</div></div>'
+        +'<span class="verdict '+vc+'">'+esc(vlabel)+'</span></div>';
+      if(rr.differences) html+='<div class="cmp-diff"><b>จุดต่างจากรุ่นที่ต้องการ</b>'+esc(rr.differences)+'</div>';
+      if(rr.note) html+='<div class="cmp-diff"><b>หมายเหตุ</b>'+esc(rr.note)+'</div>';
+      if(p){
+        html+='<div class="cmp-meta">'
+          +'<span class="mi '+(inS?'in':'out')+'">สต็อก: <b>'+(p.qty??0)+'</b> ชิ้น</span>'
+          +'<span class="mi">ราคา: <b>฿'+money(p.price)+'</b></span>'
+          +(p.store||p.shelf?('<span class="mi">ตำแหน่ง: <b>'+esc((p.store||'')+' '+(p.shelf||''))+'</b></span>'):'')
+          +'<span class="mi">SAP: <b>'+esc(p.code||'—')+'</b></span></div>';
+      }
+      html+='</div>';
+    });
+  }
+  html+='<div class="cmp-disclaimer">⚠️ ผลนี้เป็นการวิเคราะห์เบื้องต้นจาก AI โดยถอดความหมายจากเลขรุ่น อาจคลาดเคลื่อนได้ '
+      +'<b>ต้องให้วิศวกร/ช่างผู้ชำนาญตรวจสอบสเปกจริงก่อนนำไปใช้แทน</b> โดยเฉพาะงานที่เกี่ยวกับความปลอดภัยหรือความแม่นยำ</div>';
+  $('cmpResult').innerHTML=html;
 }
 
 </script>
