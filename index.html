@@ -72,7 +72,12 @@
   /* ---------- Search (reused) ---------- */
   .search-label{font-family:var(--mono);font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:var(--muted);margin-bottom:8px;display:block}
   .search-wrap{position:relative;margin-bottom:26px}
-  .search-box{position:relative}
+  .search-row{display:flex;gap:10px;align-items:stretch}
+  .search-box{position:relative;flex:1;min-width:0}
+  .cam-btn{flex:none;display:inline-flex;align-items:center;gap:8px;font-family:var(--sans);font-size:14px;font-weight:600;color:#15181C;background:var(--amber);border:none;border-radius:2px;padding:0 16px;cursor:pointer}
+  .cam-btn:hover{background:#d99500}
+  .cam-btn svg{flex:none}
+  @media(max-width:560px){ .cam-btn span{display:none} .cam-btn{padding:0 14px} }
   .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
   input#q{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
   input#q::placeholder{color:var(--faint);font-weight:400}
@@ -234,13 +239,13 @@
 <!-- ============ SETUP NOTICE (ยังไม่ตั้งค่า Supabase) ============ -->
 <div id="setupScreen" class="hidden">
   <div class="setup-note">
-    <h2>⚙️ ยังไม่ได้ตั้งค่าการเชื่อมต่อ</h2>
-    <p style="font-size:14px;color:var(--muted)">เปิดไฟล์นี้ด้วย text editor แล้วกรอกค่า <code>SUPABASE_URL</code> และ <code>SUPABASE_ANON_KEY</code> ที่ส่วนบนสุดของ &lt;script&gt;</p>
-    <ol>
-      <li>สร้างโปรเจกต์ที่ <code>supabase.com</code></li>
-      <li>ไปที่ Project Settings → API เพื่อคัดลอก URL และ anon key</li>
-      <li>ทำตามไฟล์ <code>SETUP-GUIDE.md</code> ให้ครบ</li>
-    </ol>
+    <h2>⚙️ ตั้งค่าการเชื่อมต่อ Supabase</h2>
+    <p style="font-size:14px;color:var(--muted);margin-bottom:16px">ใส่ค่าจาก Supabase → Project Settings → API (กรอกครั้งเดียว ระบบจะจำไว้ในเบราว์เซอร์นี้ ครั้งต่อไปไม่ต้องกรอกอีก)</p>
+    <div id="cfgMsg"></div>
+    <div class="field"><label>Project URL</label><input id="cfgUrl" type="text" placeholder="https://xxxxxxxx.supabase.co"></div>
+    <div class="field"><label>anon public key</label><input id="cfgKey" type="text" placeholder="eyJ..."></div>
+    <div class="field"><label>EMP_DOMAIN (ปกติไม่ต้องแก้)</label><input id="cfgEmp" type="text" placeholder="spare.local"></div>
+    <button class="primary" id="cfgSave" style="margin-top:6px">บันทึกและเข้าใช้งาน</button>
   </div>
 </div>
 
@@ -255,16 +260,23 @@
   <div id="searchArea" class="hidden">
     <div class="search-wrap">
       <label class="search-label" for="q">พิมพ์โมเดล / ชื่อพาร์ท / รหัส SAP <span id="cnt" style="color:var(--faint)"></span></label>
-      <div class="search-box">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="เช่น  E2E-X2D1-N  หรือ  proximity switch" role="combobox" aria-expanded="false">
+      <div class="search-row">
+        <div class="search-box">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input id="q" type="text" autocomplete="off" spellcheck="false" placeholder="เช่น  E2E-X2D1-N  หรือ  proximity switch" role="combobox" aria-expanded="false">
+        </div>
+        <button id="camBtn" class="cam-btn" title="ถ่ายรูปรุ่นเพื่อค้นหา" aria-label="ถ่ายรูปรุ่นเพื่อค้นหา">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L8 6H4a1 1 0 0 0-1 1v11a1 1 0 0 0 1 1h16a1 1 0 0 0 1-1V7a1 1 0 0 0-1-1h-4l-1.5-2z"/><circle cx="12" cy="13" r="3.2"/></svg>
+          <span>สแกนรุ่น</span>
+        </button>
+        <input id="camInput" type="file" accept="image/*" capture="environment" style="display:none">
       </div>
       <div class="dropdown" id="dd" role="listbox"></div>
     </div>
 
     <div class="hint" id="hint">
-      <div class="big">เริ่มพิมพ์เพื่อค้นหาอะไหล่</div>
-      <div>เลือกจากรายการ แล้วดูจำนวนในสต็อกและราคา · ใช้ <kbd>↑</kbd> <kbd>↓</kbd> เลื่อน <kbd>Enter</kbd> เลือก</div>
+      <div class="big">เริ่มพิมพ์ หรือกด “สแกนรุ่น” เพื่อค้นหาอะไหล่</div>
+      <div>พิมพ์เอง แล้วเลือกจากรายการ · หรือถ่ายรูปตัวรุ่นให้ระบบอ่านให้ · ใช้ <kbd>↑</kbd> <kbd>↓</kbd> เลื่อน <kbd>Enter</kbd> เลือก</div>
     </div>
 
     <div class="detail" id="detail">
@@ -294,6 +306,42 @@
   </div>
 </main>
 
+<!-- ============ SCAN OVERLAY ============ -->
+<div class="overlay" id="scanOverlay">
+  <div class="admin" style="max-width:460px">
+    <div class="admin-top">
+      <h2>สแกนรุ่นจากรูป</h2>
+      <button class="x" id="scanClose">✕</button>
+    </div>
+    <div style="padding:20px 22px">
+      <div id="scanPreviewWrap" style="display:none;margin-bottom:16px">
+        <img id="scanPreview" alt="รูปที่ถ่าย" style="width:100%;max-height:220px;object-fit:contain;border:1.5px solid var(--line-strong);border-radius:3px;background:#000">
+      </div>
+      <div id="scanBusy" style="display:none">
+        <div style="font-family:var(--mono);font-size:13px;color:var(--muted)" id="scanStatus">กำลังเตรียม…</div>
+        <div class="bar" style="height:5px;background:var(--line);border-radius:3px;margin-top:10px;overflow:hidden"><i id="scanBar" style="display:block;height:100%;width:0;background:var(--amber);transition:width .2s"></i></div>
+      </div>
+      <div id="scanResult" style="display:none">
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">อ่านได้จากรูป</div>
+        <div style="font-family:var(--mono);font-size:11px;letter-spacing:1px;text-transform:uppercase;color:var(--muted);margin-bottom:5px">อ่านได้จากรูป <span id="scanSrc" style="color:var(--amber)"></span></div>
+        <div id="scanText" style="font-family:var(--mono);font-size:14px;background:#F4F5F7;border:1px solid var(--line);border-radius:2px;padding:9px 11px;word-break:break-word;max-height:110px;overflow:auto"></div>
+        <div id="scanNoMatchBox" style="display:none;margin-top:14px">
+          <div class="msg info" style="margin-bottom:12px">ไม่พบรุ่นที่ตรงจากรูป ลองแก้คำค้นเอง หรือถ่ายใหม่ให้ตัวอักษรชัดและเต็มเฟรมขึ้น</div>
+          <button class="primary" id="scanUseText">ใช้ข้อความนี้ค้นเอง</button>
+        </div>
+      </div>
+      <div id="scanError" class="msg err" style="display:none"></div>
+      <div style="margin-top:16px;display:flex;gap:8px">
+        <button class="hbtn" id="scanRetake" style="border-color:var(--line-strong);color:var(--ink);flex:1">ถ่าย/เลือกรูปใหม่</button>
+        <button class="hbtn" id="scanOffline" style="border-color:var(--line-strong);color:var(--ink);flex:1;display:none">ลองโหมดออฟไลน์</button>
+      </div>
+      <div style="font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:12px;line-height:1.6">
+        เคล็ดลับ: ถ่ายให้ตัวอักษรรุ่นชัด เต็มเฟรม ไม่เอียง แสงพอดี ไม่มีแสงสะท้อน
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ ADMIN OVERLAY ============ -->
 <div class="overlay" id="adminOverlay">
   <div class="admin">
@@ -308,6 +356,7 @@
 <footer>ข้อมูลจากไฟล์ MC Spare Part · July 2026 (SAP)</footer>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
 /* ============================================================
    ①  ตั้งค่าการเชื่อมต่อ Supabase ที่นี่
@@ -317,8 +366,14 @@ const SUPABASE_URL      = 'https://dfzyuedkdgxlquekmjih.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmenl1ZWRrZGd4bHF1ZWttamloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzU5NjksImV4cCI6MjA5OTE1MTk2OX0.mDNr2YENU5u3b1i94_wmWfTnZoUKRy3Qa1ouDWiDHig';
 // โดเมนภายในสำหรับแปลงรหัสพนักงานเป็นอีเมล (ผู้ใช้ไม่ต้องรู้ค่านี้)
 // เช่น รหัส 7199 -> 7199@spare.local  ถ้าสมัครแล้วขึ้น "invalid email" ให้เปลี่ยนเป็นโดเมนบริษัท เช่น 'yourcompany.com'
-const EMP_DOMAIN        = 'spare.local';
+let EMP_DOMAIN        = 'spare.local';
 /* ============================================================ */
+
+// ถ้ายังไม่ได้ใส่คีย์ในไฟล์ ให้ดึงค่าที่เคยบันทึกไว้ในเบราว์เซอร์ (ตั้งครั้งเดียว ใช้ได้ตลอด)
+if(SUPABASE_URL.includes('YOUR-PROJECT') || SUPABASE_ANON_KEY.includes('YOUR-ANON')){
+  try{ const c=JSON.parse(localStorage.getItem('sp_config')||'null');
+    if(c && c.url && c.key){ SUPABASE_URL=c.url; SUPABASE_ANON_KEY=c.key; if(c.emp) EMP_DOMAIN=c.emp; } }catch(e){}
+}
 
 const configured = !SUPABASE_URL.includes('YOUR-PROJECT') && !SUPABASE_ANON_KEY.includes('YOUR-ANON');
 const $ = id => document.getElementById(id);
@@ -330,8 +385,20 @@ function showOnly(id){
   $(id).classList.remove('hidden');
 }
 
+function saveConfig(){
+  const url=$('cfgUrl').value.trim().replace(/\/+$/,'');
+  const key=$('cfgKey').value.trim();
+  const emp=($('cfgEmp').value.trim()||'spare.local');
+  if(!/^https:\/\/.+\.supabase\.co$/.test(url)){ $('cfgMsg').innerHTML='<div class="msg err">URL ควรเป็นแบบ https://xxxx.supabase.co</div>'; return; }
+  if(key.length<20){ $('cfgMsg').innerHTML='<div class="msg err">anon key ดูสั้นเกินไป ตรวจอีกครั้ง</div>'; return; }
+  try{ localStorage.setItem('sp_config', JSON.stringify({url,key,emp})); }catch(e){ $('cfgMsg').innerHTML='<div class="msg err">บันทึกไม่ได้ (เบราว์เซอร์บล็อก storage)</div>'; return; }
+  location.reload();
+}
+
 if(!configured){
   showOnly('setupScreen');
+  $('cfgSave').onclick=saveConfig;
+  $('cfgEmp').value='spare.local';
 }else{
   sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   boot();
@@ -451,12 +518,15 @@ async function idbGet(k){ try{ const db=await idbOpen(); return await new Promis
 async function idbSet(k,v){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const q=db.transaction('kv','readwrite').objectStore('kv').put(v,k); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }catch(e){} }
 async function idbDel(k){ try{ const db=await idbOpen(); await new Promise((res,rej)=>{ const q=db.transaction('kv','readwrite').objectStore('kv').delete(k); q.onsuccess=()=>res(); q.onerror=()=>rej(q.error); }); }catch(e){} }
 
+function normKey(s){ return (s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+function cpl(a,b){ const n=Math.min(a.length,b.length); let i=0; while(i<n&&a[i]===b[i])i++; return i; }
 function prepParts(rows){
   for(const p of rows){
     p.desc=p.descr;
     p._m=(p.model||'').toLowerCase(); p._p=(p.part||'').toLowerCase();
     p._c=(p.code||'').toLowerCase();  p._b=(p.brand||'').toLowerCase();
     p._d=(p.desc||'').toLowerCase();
+    p._nm=normKey(p.model); p._nc=normKey(p.code);
   }
   return rows;
 }
@@ -547,16 +617,27 @@ function highlight(text,query){
   return esc(text.slice(0,i))+'<mark>'+esc(text.slice(i,i+query.length))+'</mark>'+esc(text.slice(i+query.length));
 }
 let results=[], active=-1;
-function search(raw){
-  const query=raw.trim().toLowerCase(); if(!query) return [];
-  const out=[];
-  for(const p of PARTS){
-    let s;
-    if(p._m===query)s=0; else if(p._m.startsWith(query))s=1; else if(p._m.includes(query))s=2;
-    else if(p._c.includes(query))s=3; else if(p._p.includes(query))s=4;
-    else if(p._b.includes(query))s=5; else if(p._d.includes(query))s=6; else continue;
-    out.push([s,p]);
+function scorePart(p,q,nq){
+  let s=99;
+  if(p._m===q) s=0;
+  else if(p._m.startsWith(q)) s=1;
+  else if(nq.length>=4 && p._nm.startsWith(nq)) s=1.5;
+  else if(p._m.includes(q)) s=2;
+  else if(nq.length>=6){ const l=cpl(nq,p._nm); if(l>=6) s=2.5+(30-Math.min(l,30))/100; } // ตระกูลรุ่นเดียวกัน (prefix เหมือน)
+  if(s===99){
+    if(p._c.includes(q)) s=3;
+    else if(nq.length>=4 && p._nc.includes(nq)) s=3.5;
+    else if(p._p.includes(q)) s=4;
+    else if(p._b.includes(q)) s=5;
+    else if(p._d.includes(q)) s=6;
+    else return null;
   }
+  return s;
+}
+function search(raw){
+  const q=raw.trim().toLowerCase(); if(!q) return [];
+  const nq=normKey(raw); const out=[];
+  for(const p of PARTS){ const s=scorePart(p,q,nq); if(s!==null) out.push([s,p]); }
   out.sort((a,b)=>a[0]-b[0]||(Number(b[1].qty)||0)-(Number(a[1].qty)||0)||a[1]._m.localeCompare(b[1]._m));
   return out.slice(0,50).map(x=>x[1]);
 }
@@ -673,6 +754,215 @@ async function setStatus(uid,status,btn){
   if(error){ alert('ทำรายการไม่สำเร็จ: '+error.message); btn.disabled=false; return; }
   await loadAdmin(); await refreshPending();
 }
+
+/* ---------- SCAN รุ่นจากรูป (OCR) ---------- */
+$('camBtn').onclick=()=>$('camInput').click();
+$('scanRetake').onclick=()=>$('camInput').click();
+$('scanClose').onclick=closeScan;
+$('scanOverlay').onclick=e=>{ if(e.target.id==='scanOverlay') closeScan(); };
+$('camInput').onchange=e=>{ const f=e.target.files&&e.target.files[0]; if(f) scanImage(f); e.target.value=''; };
+
+function openScan(){ $('scanOverlay').classList.add('open'); }
+function closeScan(){ $('scanOverlay').classList.remove('open'); }
+function scanShow(id,on){ $(id).style.display=on?'':'none'; }
+function setScanBusy(msg){ scanShow('scanBusy',true); $('scanStatus').textContent=msg; }
+function setScanProgress(pc){ $('scanBar').style.width=pc+'%'; $('scanStatus').textContent='กำลังอ่านตัวอักษร… '+pc+'%'; }
+
+const OCR_STATUS={ 'loading tesseract core':'กำลังโหลดตัวอ่าน…','initializing tesseract':'กำลังเริ่มระบบ…',
+  'loading language traineddata':'กำลังโหลดข้อมูลภาษา…','initializing api':'กำลังเตรียม…','recognizing text':'กำลังอ่านตัวอักษร…' };
+
+function preprocess(url){
+  return new Promise((res,rej)=>{
+    const img=new Image();
+    img.onload=()=>{
+      let w=img.width, h=img.height;
+      const target=1600; let scale=target/Math.max(w,h);
+      if(scale>3) scale=3;                 // อย่าขยายเกินไป
+      w=Math.max(1,Math.round(w*scale)); h=Math.max(1,Math.round(h*scale));
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      const ctx=c.getContext('2d'); ctx.drawImage(img,0,0,w,h);
+      try{
+        const d=ctx.getImageData(0,0,w,h), a=d.data;
+        for(let i=0;i<a.length;i+=4){ const g=0.299*a[i]+0.587*a[i+1]+0.114*a[i+2]; a[i]=a[i+1]=a[i+2]=g; }
+        ctx.putImageData(d,0,0);
+      }catch(_){}
+      res(c);
+    };
+    img.onerror=()=>rej(new Error('เปิดรูปไม่ได้'));
+    img.src=url;
+  });
+}
+
+let ocrWorker=null;
+async function getWorker(){
+  if(ocrWorker) return ocrWorker;
+  ocrWorker=await Tesseract.createWorker('eng',1,{ logger:m=>{
+    if(m.status==='recognizing text') setScanProgress(Math.round((m.progress||0)*100));
+    else if(OCR_STATUS[m.status]) setScanBusy(OCR_STATUS[m.status]);
+  }});
+  await ocrWorker.setParameters({
+    tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-./ ',
+    tessedit_pageseg_mode:'6'
+  });
+  return ocrWorker;
+}
+
+function rotateCanvas(src,deg){
+  if(deg===0) return src;
+  const rad=deg*Math.PI/180, s=Math.abs(Math.sin(rad)), c=Math.abs(Math.cos(rad));
+  const w=src.width,h=src.height, nw=Math.round(w*c+h*s), nh=Math.round(w*s+h*c);
+  const cv=document.createElement('canvas'); cv.width=nw; cv.height=nh;
+  const ctx=cv.getContext('2d'); ctx.translate(nw/2,nh/2); ctx.rotate(rad); ctx.drawImage(src,-w/2,-h/2); return cv;
+}
+function toJpegBase64(file, maxDim){
+  return new Promise((res,rej)=>{
+    const url=URL.createObjectURL(file); const img=new Image();
+    img.onload=()=>{
+      let w=img.width,h=img.height; const sc=Math.min(1, maxDim/Math.max(w,h));
+      w=Math.max(1,Math.round(w*sc)); h=Math.max(1,Math.round(h*sc));
+      const c=document.createElement('canvas'); c.width=w; c.height=h;
+      c.getContext('2d').drawImage(img,0,0,w,h);
+      URL.revokeObjectURL(url);
+      const durl=c.toDataURL('image/jpeg',0.85);
+      res({ b64:durl.split(',')[1], mime:'image/jpeg' });
+    };
+    img.onerror=()=>{ URL.revokeObjectURL(url); rej(new Error('เปิดรูปไม่ได้')); };
+    img.src=url;
+  });
+}
+
+// อ่านด้วย AI Vision (Gemini) ผ่าน Edge Function — คืนข้อความรุ่นที่อ่านได้
+async function cloudScan(file){
+  setScanBusy('กำลังส่งรูปให้ AI อ่าน…');
+  const { b64, mime }=await toJpegBase64(file, 1280);
+  let resp;
+  try{
+    resp=await sb.functions.invoke('clever-action', { body:{ image:b64, mimeType:mime } });
+  }catch(e){ const err=new Error('เรียก AI ไม่ได้'); err.reason='not_setup'; throw err; }
+  const { data, error }=resp;
+  if(error){
+    let status, bodyErr;
+    try{ status=error.context && error.context.status; }catch(_){}
+    try{ if(error.context && error.context.clone){ const b=await error.context.clone().json(); bodyErr=b && b.error; } }catch(_){}
+    if(status===404 || error.name==='FunctionsFetchError' || error.name==='FunctionsRelayError'){
+      const e=new Error('ยังไม่ได้ deploy ฟังก์ชัน scan-model'); e.reason='not_setup'; throw e;
+    }
+    const e=new Error(bodyErr || ('AI ตอบกลับผิดพลาด'+(status?(' ('+status+')'):''))); e.reason='error'; throw e;
+  }
+  if(data && data.error){ const e=new Error(data.error); e.reason='error'; throw e; }
+  const models=(data&&data.models)||[]; const raw=(data&&data.raw)||'';
+  return (models.join(' ')+' '+raw).trim();
+}
+
+// อ่านแบบออฟไลน์ด้วย Tesseract (สำรอง ถ้ายังไม่ได้ตั้งค่า AI) — แม่นน้อยกว่า
+async function localScan(file){
+  scanShow('scanError',false); scanShow('scanNoMatchBox',false);
+  $('scanOffline').style.display='none';
+  setScanBusy('อ่านแบบออฟไลน์…');
+  const url=URL.createObjectURL(file);
+  try{
+    if(typeof Tesseract==='undefined') throw new Error('โหลดตัวอ่านไม่สำเร็จ ตรวจอินเทอร์เน็ต');
+    const canvas=await preprocess(url);
+    const worker=await getWorker();
+    const rots=[0,90,270,180];
+    let bestRes=null, bestText='', fallbackText='';
+    for(let i=0;i<rots.length;i++){
+      $('scanStatus').textContent='กำลังอ่านตัวอักษร (ออฟไลน์)… ('+(i+1)+'/'+rots.length+')';
+      const { data }=await worker.recognize(rotateCanvas(canvas,rots[i]));
+      const t=(data&&data.text)||'';
+      if(t.trim() && !fallbackText) fallbackText=t;
+      const r=ocrSearch(t);
+      if(r.matches.length && (!bestRes || r.best<bestRes.best)){ bestRes=r; bestText=t; }
+      if(bestRes && bestRes.best===0) break;
+    }
+    scanShow('scanBusy',false);
+    $('scanSrc').textContent='(โหมดออฟไลน์)';
+    handleOcr(bestText||fallbackText, bestRes);
+  }catch(err){
+    scanShow('scanBusy',false); scanShow('scanError',true);
+    $('scanError').className='msg err'; $('scanError').textContent='อ่านรูปไม่สำเร็จ: '+((err&&err.message)||err);
+  }finally{ setTimeout(()=>URL.revokeObjectURL(url),4000); }
+}
+
+async function scanImage(file){
+  openScan();
+  scanShow('scanResult',false); scanShow('scanError',false); scanShow('scanNoMatchBox',false);
+  $('scanOffline').style.display='none'; $('scanSrc').textContent='';
+  const url=URL.createObjectURL(file);
+  $('scanPreview').src=url; scanShow('scanPreviewWrap',true);
+  setScanBusy('กำลังเตรียมรูป…'); $('scanBar').style.width='30%';
+  try{
+    const text=await cloudScan(file);       // ทางหลัก: AI Vision
+    scanShow('scanBusy',false);
+    $('scanSrc').textContent='(อ่านโดย AI)';
+    handleOcr(text);
+  }catch(err){
+    scanShow('scanBusy',false);
+    if(err && err.reason==='not_setup'){
+      // ยังไม่ได้ตั้งค่า AI -> บอกชัด + ให้ปุ่มลองออฟไลน์
+      scanShow('scanError',true);
+      $('scanError').className='msg info';
+      $('scanError').innerHTML='ยังไม่ได้ตั้งค่า <b>AI Vision</b> (ปุ่มสแกนจะอ่านป้ายจริงได้เมื่อทำตามคู่มือหัวข้อ “เปิดฟีเจอร์สแกนรุ่นด้วย AI”) — โหมดออฟไลน์อ่านป้ายยากๆ ไม่ออก';
+      $('scanOffline').style.display=''; $('scanOffline').onclick=()=>localScan(file);
+    }else if(err && err.reason==='error'){
+      scanShow('scanError',true);
+      $('scanError').className='msg err';
+      $('scanError').textContent='AI อ่านไม่สำเร็จ: '+err.message;
+    }else{
+      scanShow('scanError',true);
+      $('scanError').className='msg err';
+      $('scanError').textContent='อ่านรูปไม่สำเร็จ: '+((err&&err.message)||err);
+    }
+  }finally{ setTimeout(()=>URL.revokeObjectURL(url),4000); }
+}
+
+function ocrTokens(text){
+  const up=(text||'').toUpperCase();
+  let t=up.match(/[A-Z0-9][A-Z0-9\-.\/]{2,}/g)||[];
+  // รหัสรุ่นเกือบทั้งหมดมีตัวเลข + ยาวพอ -> ตัดคำที่เป็นตัวอักษรมั่วออก กันแมตช์ผิด
+  t=[...new Set(t)].filter(x=>/[0-9]/.test(x) && x.replace(/[^A-Z0-9]/g,'').length>=4);
+  t.sort((a,b)=>b.length-a.length);
+  return t;
+}
+function ocrSearch(text){
+  const tokens=ocrTokens(text);
+  const best=new Map();
+  for(const tk of tokens){
+    const q=tk.toLowerCase(), nq=normKey(tk);
+    for(const p of PARTS){
+      const s=scorePart(p,q,nq); if(s===null) continue;
+      const key=p.code+'|'+p.model+'|'+p.store+'|'+p.shelf;
+      const cur=best.get(key);
+      if(!cur || s<cur[0]) best.set(key,[s,p]);
+    }
+  }
+  const arr=[...best.values()].sort((a,b)=>a[0]-b[0]||(Number(b[1].qty)||0)-(Number(a[1].qty)||0));
+  return { tokens, matches: arr.slice(0,50).map(x=>x[1]), best: arr.length?arr[0][0]:Infinity };
+}
+
+function handleOcr(text, pre){
+  const clean=(text||'').replace(/\s+/g,' ').trim();
+  scanShow('scanResult',true);
+  $('scanText').textContent=clean||'(อ่านไม่ออก)';
+  const res = pre || ocrSearch(clean);
+  const { tokens, matches } = res;
+  if(matches && matches.length){
+    const best=(tokens&&tokens[0])||clean;
+    $('q').value=best;
+    results=matches; active=-1; renderDD(best);
+    $('hint').style.display='none'; $('detail').classList.remove('show');
+    closeScan();
+    $('q').scrollIntoView({block:'center'});
+  }else{
+    scanShow('scanNoMatchBox',true);
+    $('scanUseText').onclick=()=>{
+      const best=(tokens&&tokens[0])||clean;
+      $('q').value=best; closeScan();
+      results=search(best); active=-1; renderDD(best);
+    };
+  }
+}
+
 </script>
 </body>
 </html>
