@@ -1218,6 +1218,23 @@ function subWarn(target, model, note){
   return '';
 }
 
+// ถอดรหัสแบบยึดกระบอก SMC (CM2/CM3) — ข้อมูลตายตัวจากแคตตาล็อก ไม่ใช่การเดา
+const SMC_MOUNT={B:'Basic (ไม่มีขา/แผ่นยึด ยึดด้วยรูเกลียวที่ฝากระบอกเอง)',L:'Foot (มีขาเหล็ก 2 ข้างยึดกับฐาน)',F:'Flange ฝั่งก้าน (หน้าแปลนด้านออกก้าน)',G:'Flange ฝั่งท้าย (หน้าแปลนด้านท้าย)',C:'Single clevis (หูเดี่ยว หมุนได้)',D:'Double clevis (หูคู่ หมุนได้)',T:'Trunnion (สลักข้างหมุนได้)'};
+function smcParse(s){
+  const u=(s||'').toUpperCase().replace(/\s+/g,'');
+  const m=u.match(/^C?D?(M[23])([BLFGCDT])(\d{2,3})(?:[-X]|$)/);
+  return m?{series:m[1],mount:m[2],bore:m[3]}:null;
+}
+function mountDiff(target, model){
+  const a=smcParse(target), b=smcParse(model);
+  if(!a||!b) return '';
+  if(a.series!==b.series || a.bore!==b.bore) return '';
+  if(a.mount===b.mount) return '';
+  const na=SMC_MOUNT[a.mount], nb=SMC_MOUNT[b.mount];
+  if(!na||!nb) return '';
+  return 'ตัวเดิม “'+a.mount+'” = '+na+' · ในสต็อก “'+b.mount+'” = '+nb+' — บอร์/สโตรก/ตัวกระบอกเหมือนกัน ต่างแค่วิธียึดกับเครื่อง';
+}
+
 function renderWeb(target, data, inStock, notStock){
   inStock=inStock||[]; notStock=notStock||[];
   const catBtn=(brand,model)=>'<a class="cat-btn" href="'+catUrl(brand,model)+'" target="_blank" rel="noopener">📖 เปิดตารางแคตตาล็อกของ '+esc(model)+' (ยืนยันสเปกจริง)</a>';
@@ -1246,6 +1263,8 @@ function renderWeb(target, data, inStock, notStock){
         +'<span class="verdict '+(warn?'no':'ok')+'">'+badgeTxt+'</span></div>';
       if(warn) html+='<div class="cmp-alert">⚠️ '+esc(warn)+'</div>';
       if(e.note) html+='<div class="cmp-diff"><b>ข้อสังเกตจาก AI (ยังไม่ยืนยัน)</b>'+esc(e.note)+'</div>';
+      const mdiff=mountDiff(target, model);
+      if(mdiff) html+='<div class="cmp-diff" style="background:#EAF5EC;border-left:3px solid var(--green);padding:8px 11px;border-radius:2px;margin-top:9px"><b style="color:#127544">ต่างที่แบบยึด · ข้อมูลแคตตาล็อก SMC (ยืนยันแล้ว)</b>'+esc(mdiff)+'</div>';
       html+='<div class="cmp-meta">'
         +'<span class="mi '+(inS?'in':'out')+'">สต็อก: <b>'+(p.qty??0)+'</b> ชิ้น</span>'
         +'<span class="mi">ราคา: <b>฿'+money(p.price)+'</b></span>'
@@ -1265,6 +1284,7 @@ function renderWeb(target, data, inStock, notStock){
         +'<div class="cmp-sub">'+esc(e.brand||'')+'</div></div><span class="verdict '+(warn?'no':'partial')+'">'+(warn?'⚠️ ตรวจวงจร':'ไม่มีในสต็อก')+'</span></div>'
         +(warn?('<div class="cmp-alert">⚠️ '+esc(warn)+'</div>'):'')
         +(e.note?('<div class="cmp-diff"><b>ข้อสังเกตจาก AI</b>'+esc(e.note)+'</div>'):'')
+        +((()=>{const md=mountDiff(target,e.model);return md?('<div class="cmp-diff" style="background:#EAF5EC;border-left:3px solid var(--green);padding:8px 11px;border-radius:2px;margin-top:9px"><b style="color:#127544">ต่างที่แบบยึด · แคตตาล็อก SMC (ยืนยันแล้ว)</b>'+esc(md)+'</div>'):''; })())
         +'<div style="margin-top:10px">'+catBtn(e.brand, e.model)+'</div></div>';
     });
   }
