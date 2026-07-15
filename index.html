@@ -108,6 +108,9 @@
   .cmp-meta .in{color:var(--green)} .cmp-meta .out{color:var(--red)}
   .cmp-summary{background:#F6F7F9;border:1px solid var(--line);border-radius:2px;padding:14px 16px;font-size:14px;line-height:1.6;margin-bottom:14px}
   .cmp-disclaimer{background:var(--red-bg);border-left:3px solid var(--red);border-radius:2px;padding:11px 14px;font-size:12.5px;color:#7a2b2b;line-height:1.55;margin-top:16px}
+  .cmp-alert{background:#FDECEC;border:1.5px solid var(--red);border-radius:2px;padding:9px 12px;margin-top:11px;font-size:13.5px;font-weight:600;color:#a12727;line-height:1.5}
+  .cat-btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--sans);font-size:13.5px;font-weight:600;color:#15181C;background:var(--amber);border-radius:3px;padding:9px 14px;text-decoration:none;line-height:1.3}
+  .cat-btn:hover{background:#d99500}
   .search-box svg{position:absolute;left:16px;top:50%;transform:translateY(-50%);color:var(--faint);pointer-events:none}
   .search-box input{width:100%;font-family:var(--mono);font-size:17px;font-weight:500;padding:16px 16px 16px 46px;border:1.5px solid var(--line-strong);background:var(--panel);color:var(--ink);border-radius:2px;outline:none}
   .search-box input::placeholder{color:var(--faint);font-weight:400}
@@ -357,7 +360,7 @@
 
     <div id="cmpHint" class="hint">
       <div class="big">พิมพ์รุ่นที่ต้องการ แล้วกด “เทียบรุ่น”</div>
-      <div>ระบบจะคัดตัวที่เกี่ยวข้องจากสต็อก แล้วให้ AI บอกว่าตัวไหนแทนได้ + ต่างกันตรงไหน (ขนาด/สโตรก/ออปชัน/ไฟฟ้า ฯลฯ)</div>
+      <div>AI จะค้นแคตตาล็อกจากเว็บ เข้าใจสเปกของรุ่นนั้น หาตัวที่แทนได้ (รวมข้ามยี่ห้อ) แล้วเช็คว่ามีในสต็อกเราตัวไหนบ้าง</div>
     </div>
 
     <div id="cmpResult"></div>
@@ -420,8 +423,8 @@
    ①  ตั้งค่าการเชื่อมต่อ Supabase ที่นี่
        (คัดลอกจาก Supabase → Project Settings → API)
    ============================================================ */
-const SUPABASE_URL      = 'https://dfzyuedkdgxlquekmjih.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRmenl1ZWRrZGd4bHF1ZWttamloIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM1NzU5NjksImV4cCI6MjA5OTE1MTk2OX0.mDNr2YENU5u3b1i94_wmWfTnZoUKRy3Qa1ouDWiDHig';
+let SUPABASE_URL      = 'https://YOUR-PROJECT.supabase.co';
+let SUPABASE_ANON_KEY = 'YOUR-ANON-KEY';
 // โดเมนภายในสำหรับแปลงรหัสพนักงานเป็นอีเมล (ผู้ใช้ไม่ต้องรู้ค่านี้)
 // เช่น รหัส 7199 -> 7199@spare.local  ถ้าสมัครแล้วขึ้น "invalid email" ให้เปลี่ยนเป็นโดเมนบริษัท เช่น 'yourcompany.com'
 let EMP_DOMAIN        = 'spare.local';
@@ -680,6 +683,7 @@ let results=[], active=-1;
 function scorePart(p,q,nq){
   let s=99;
   if(p._m===q) s=0;
+  else if(nq.length>=4 && p._nc===nq) s=0.5;
   else if(p._m.startsWith(q)) s=1;
   else if(nq.length>=4 && p._nm.startsWith(nq)) s=1.5;
   else if(p._m.includes(q)) s=2;
@@ -1075,42 +1079,199 @@ function compareCandidates(target){
   return [...map.values()].slice(0,50);
 }
 
+async function invokeFn(bodyObj){
+  let headers={};
+  try{ const {data:s}=await sb.auth.getSession(); const tk=s&&s.session&&s.session.access_token; if(tk) headers={Authorization:'Bearer '+tk}; }catch(_){}
+  const r=await sb.functions.invoke(FN, { body:bodyObj, headers });
+  if(r.error){
+    let msg=r.error.message||'error';
+    try{ if(r.error.context&&r.error.context.clone){ const b=await r.error.context.clone().json(); if(b&&b.error) msg=b.error; } }catch(_){}
+    const e=new Error(msg); throw e;
+  }
+  if(r.data && r.data.error) throw new Error(r.data.error);
+  return r.data;
+}
+
+// หาตัวในสต็อกที่ตรงกับ "รุ่นเทียบเท่า" ที่ AI เสนอ (ต้องใกล้เคียงจริงเท่านั้น)
+function matchInStock(modelStr){
+  const nq=normKey(modelStr); if(nq.length<4) return null;
+  let best=null, bestScore=99;
+  for(const p of PARTS){
+    const nm=p._nm; if(!nm || nm.length<4) continue;
+    let s=99;
+    if(nm===nq) s=0;                                   // ตรงเป๊ะ
+    else if(nm.startsWith(nq) && nq.length>=5) s=1;     // ในสต็อกเป็นรุ่นย่อยของที่เสนอ (เช่น EESX770 -> EESX770A)
+    else if(nq.startsWith(nm) && nm.length>=5) s=1.2;   // ที่เสนอเป็นรุ่นย่อยของในสต็อก
+    else continue;
+    if(s<bestScore){ bestScore=s; best=p; if(s===0) break; }
+  }
+  return best;
+}
+
+// ---- จับคู่ตัวแทน "ข้ามยี่ห้อ" ด้วยสเปกจริง (ชนิด + บอร์ + สโตรก) แบบ deterministic ----
+const STD_BORE=new Set([6,8,10,12,16,20,25,32,40,50,63,80,100,125,140,160,180,200,250,300]);
+function parseBoreStroke(model){
+  const nums=((model||'').match(/\d+/g)||[]).map(Number).filter(n=>n>0);
+  if(nums.length<2) return null;
+  const stroke=nums[nums.length-1], bore=nums[nums.length-2];   // สองเลขท้าย = บอร์, สโตรก
+  if(!STD_BORE.has(bore)) return null;
+  if(stroke<5 || stroke>3000) return null;
+  return {bore, stroke};
+}
+// หากระบอกลมในสต็อกที่ บอร์+สโตรก ตรงกัน (ต่างยี่ห้อ/ชนิดได้) — ใช้เมื่อเป้าหมายเป็นกระบอกลม
+function attrMatches(target, targetType){
+  if(!/cylinder|กระบอก/i.test(targetType||'')) return [];
+  const bs=parseBoreStroke(target); if(!bs) return [];
+  const nt=normKey(target); const out=[];
+  for(const p of PARTS){
+    if(!/CYLINDER/i.test(p.part||'')) continue;
+    if(normKey(p.model)===nt) continue;
+    const pbs=parseBoreStroke(p.model||''); if(!pbs) continue;
+    if(pbs.bore===bs.bore && pbs.stroke===bs.stroke) out.push(p);
+  }
+  // เรียง: มีของก่อน, ราคาถูกก่อน
+  out.sort((a,b)=>((Number(b.qty)||0)>0?1:0)-((Number(a.qty)||0)>0?1:0) || (Number(a.price)||9e9)-(Number(b.price)||9e9));
+  return out.slice(0,12);
+}
+
 async function compareModel(){
   const target=$('cmpInput').value.trim();
   if(!target){ $('cmpInput').focus(); return; }
   $('cmpHint').style.display='none';
   $('cmpResult').innerHTML='';
   $('cmpBusy').classList.remove('hidden');
-  $('cmpBusyText').textContent='กำลังคัดตัวเลือกจากสต็อก…';
+  $('cmpBusyText').textContent='กำลังให้ AI ค้นแคตตาล็อก MISUMI หาตัวเทียบ…';
+  $('cmpBar').style.width='45%';
 
+  // ---- AI ค้นตัวเทียบ (compound-mini, MISUMI) ----
+  let data;
+  try{
+    data=await invokeFn({ action:'websuggest', target });
+  }catch(err){
+    const m=(err&&err.message)||'';
+    $('cmpBusyText').textContent='โหมดค้นเว็บใช้ไม่ได้ ('+m.slice(0,50)+') — ใช้โหมดเร็วแทน…';
+    await scoutCompare(target, m);
+    return;
+  }
+
+  // ---- จับคู่กับสต็อก (จากรายชื่อที่ AI เสนอ) ----
+  const eqs=Array.isArray(data.equivalents)?data.equivalents:[];
+  const inStock=[], notStock=[]; const seen=new Set();
+  for(const e of eqs){
+    if(!e||!e.model) continue;
+    const p=matchInStock(e.model);
+    if(p){ const k=p.code+'|'+p.model+'|'+p.store+'|'+p.shelf; if(seen.has(k)) continue; seen.add(k); inStock.push({e,p}); }
+    else notStock.push(e);
+  }
+
+  // ---- เพิ่มการจับคู่ด้วยสเปก (บอร์+สโตรก) สำหรับกระบอกลม — จับข้ามยี่ห้อที่ AI มักพลาด ----
+  const attr=attrMatches(target, data.target_type);
+  for(const p of attr){
+    const k=p.code+'|'+p.model+'|'+p.store+'|'+p.shelf;
+    if(seen.has(k)) continue; seen.add(k);
+    inStock.push({ p, e:{ model:p.model, brand:p.brand,
+      note:'บอร์/สโตรกตรงกับที่ต้องการ (จับคู่จากสเปกในสต็อก) — อาจต่างยี่ห้อ/ชนิดย่อย ตรวจ รูยึด/ระยะติดตั้ง/พอร์ตลม/สวิตช์ ก่อนใช้แทน',
+      bySpec:true } });
+  }
+
+  $('cmpBusy').classList.add('hidden');
+  renderWeb(target, data, inStock, notStock);
+}
+
+async function scoutCompare(target, webErr){
+  $('cmpBusy').classList.remove('hidden');
   const cands=compareCandidates(target);
   if(!cands.length){
     $('cmpBusy').classList.add('hidden');
     $('cmpResult').innerHTML='<div class="hint"><div class="big">ไม่พบตัวเลือกที่เกี่ยวข้องในสต็อก</div><div>ลองพิมพ์รุ่นให้ใกล้เคียงกับที่มี หรือตรวจสะกดอีกครั้ง</div></div>';
     return;
   }
-  // map model -> part เพื่อ join สต็อก/ราคากลับ
   const byModel=new Map(); cands.forEach(p=>byModel.set((p.model||'').toUpperCase(), p));
   const payload=cands.map(p=>({ model:p.model, brand:p.brand, part:p.part, desc:p.desc }));
-
-  $('cmpBusyText').textContent='กำลังให้ AI วิเคราะห์ตัวแทน…';
-  let data, error;
-  try{
-    let headers={};
-    try{ const {data:s}=await sb.auth.getSession(); const tk=s&&s.session&&s.session.access_token; if(tk) headers={Authorization:'Bearer '+tk}; }catch(_){}
-    const r=await sb.functions.invoke(FN, { body:{ action:'compare', target, candidates:payload }, headers });
-    data=r.data; error=r.error;
-  }catch(e){ error=e; }
+  let data;
+  try{ data=await invokeFn({ action:'compare', target, candidates:payload }); }
+  catch(e){ $('cmpBusy').classList.add('hidden'); $('cmpResult').innerHTML='<div class="msg err">เทียบรุ่นไม่สำเร็จ: '+esc((e&&e.message)||String(e))+'</div>'; return; }
   $('cmpBusy').classList.add('hidden');
+  let notice='';
+  if(webErr) notice='<div class="msg info" style="margin-bottom:14px">โหมดค้นเว็บ (AI เปิดแคตตาล็อก) ใช้ไม่ได้กับบัญชีนี้ — แสดงผลจากโหมดเร็ว (คัดจากสต็อก) แทน<br><span style="font-family:var(--mono);font-size:11px">'+esc(webErr.slice(0,120))+'</span></div>';
+  renderCompare(target, data||{}, byModel, notice);
+}
 
-  if(error){
-    let msg=(error&&error.message)||String(error);
-    try{ if(error.context&&error.context.clone){ const b=await error.context.clone().json(); if(b&&b.error) msg=b.error; } }catch(_){}
-    $('cmpResult').innerHTML='<div class="msg err">เทียบรุ่นไม่สำเร็จ: '+esc(msg)+'</div>';
-    return;
+// ลิงก์เปิดค้นแคตตาล็อก/ตารางเลือกรุ่นบน MISUMI (ให้ผู้ใช้ยืนยันสเปกเองแบบคลิกเดียว)
+function catUrl(brand, model){
+  const q=encodeURIComponent(('misumi '+(brand||'')+' '+(model||'')).replace(/\s+/g,' ').trim());
+  return 'https://www.google.com/search?q='+q;
+}
+
+// ตรวจเตือนความต่างที่ "ห้ามมองข้าม" ฝั่งแอป (เตือนเฉพาะกรณีที่ชัวร์จริง กันเตือนมั่ว)
+function subWarn(target, model, note){
+  const nt=normKey(target), nm=normKey(model);
+  // 1) เลขรุ่นต่างกันแค่ตัว P ต่อท้าย -> เกือบแน่ว่า NPN vs PNP
+  if(nt && nm && nt!==nm && (nm===nt+'P' || nt===nm+'P'))
+    return 'เลขรุ่นต่างกันที่ตัว “P” — มักหมายถึง output คนละชนิด (NPN ↔ PNP) ต่อวงจรลอจิกกลับด้าน ใช้แทนตรงๆ ไม่ได้ ต้องแก้/ตรวจวงจรก่อน';
+  // 2) note พูดถึง "ความต่างของขั้ว" จริงๆ เท่านั้น (ต้องมีทั้ง NPN และ PNP คู่กัน หรือมีคำว่าตรงข้าม/ต่างขั้ว)
+  const n=(note||'');
+  const hasBoth = /NPN/i.test(n) && /PNP/i.test(n);
+  const saysOpposite = /ต่างขั้ว|ขั้วตรงข้าม|เอาต์พุตตรงข้าม|opposite polarity|ขั้ว.{0,8}(ต่าง|กลับ)|(NPN|PNP)\s*(vs|↔|→|กับ|เป็น)\s*(PNP|NPN)/i.test(n);
+  if(hasBoth || saysOpposite)
+    return 'ระวัง: อาจต่างชนิด/ขั้ว output (NPN/PNP) — ตรวจการต่อวงจรก่อนใช้แทน';
+  return '';
+}
+
+function renderWeb(target, data, inStock, notStock){
+  inStock=inStock||[]; notStock=notStock||[];
+  const catBtn=(brand,model)=>'<a class="cat-btn" href="'+catUrl(brand,model)+'" target="_blank" rel="noopener">📖 เปิดตารางแคตตาล็อกของ '+esc(model)+' (ยืนยันสเปกจริง)</a>';
+
+  let html='';
+  html+='<div class="cmp-target"><div class="lbl">รุ่นที่ต้องการ</div><div class="tv">'+esc(target)+'</div>'
+      + ((data.target_brand||data.target_type)?('<div class="desc" style="color:#8fd3ac">'+esc([data.target_brand,data.target_type].filter(Boolean).join(' · '))+'</div>'):'')
+      + (data.target_spec?('<div class="desc">'+esc(data.target_spec)+' <span style="color:var(--faint)">(สเปกโดยประมาณจาก AI)</span></div>'):'')
+      + '<div style="margin-top:10px">'+catBtn(data.target_brand, target)+'</div></div>';
+
+  html+='<div class="cmp-summary">AI ค้นตัวเทียบจากแคตตาล็อกให้ แล้วเช็คกับสต็อกเรา · <b>มีในสต็อก '+inStock.length+' รายการ</b>'
+      + (notStock.length?(' · แนะนำเพิ่มอีก '+notStock.length+' รุ่น (ยังไม่มีในสต็อก)'):'')
+      + '<br><span style="color:var(--muted);font-size:12.5px">จุดต่างด้านล่างเป็น “ข้อสังเกตจาก AI” ยังไม่ยืนยัน — กดปุ่มเปิดแคตตาล็อกเพื่อดูสเปกจริงก่อนตัดสินใจ</span></div>';
+
+  if(inStock.length){
+    html+='<div style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted);margin:6px 0 10px">✓ ตัวเทียบที่มีในสต็อก</div>';
+    inStock.forEach(it=>{
+      const p=it.p, e=it.e;
+      const inS=(Number(p.qty)||0)>0;
+      const model=p.model||e.model;
+      const warn=subWarn(target, model, e.note||'');
+      const badgeTxt = warn ? '⚠️ ตรวจวงจรก่อน' : (e.bySpec ? '🎯 สเปกตรง (บอร์/สโตรก)' : 'มีในสต็อก');
+      html+='<div class="cmp-card">'
+        +'<div class="cmp-head"><div><div class="cmp-model">'+esc(model)+'</div>'
+        +'<div class="cmp-sub">'+esc(p.brand||e.brand||'')+(p.part?(' · '+esc(p.part)):'')+'</div></div>'
+        +'<span class="verdict '+(warn?'no':'ok')+'">'+badgeTxt+'</span></div>';
+      if(warn) html+='<div class="cmp-alert">⚠️ '+esc(warn)+'</div>';
+      if(e.note) html+='<div class="cmp-diff"><b>ข้อสังเกตจาก AI (ยังไม่ยืนยัน)</b>'+esc(e.note)+'</div>';
+      html+='<div class="cmp-meta">'
+        +'<span class="mi '+(inS?'in':'out')+'">สต็อก: <b>'+(p.qty??0)+'</b> ชิ้น</span>'
+        +'<span class="mi">ราคา: <b>฿'+money(p.price)+'</b></span>'
+        +(p.store||p.shelf?('<span class="mi">ตำแหน่ง: <b>'+esc((p.store||'')+' '+(p.shelf||''))+'</b></span>'):'')
+        +'<span class="mi">SAP: <b>'+esc(p.code||'—')+'</b></span></div>'
+        +'<div style="margin-top:12px">'+catBtn(p.brand||e.brand, model)+'</div></div>';
+    });
+  }else{
+    html+='<div class="hint" style="padding:26px"><div class="big">ไม่มีตัวเทียบในสต็อกตอนนี้</div><div>ดูรายการที่ AI แนะนำด้านล่าง เพื่อจัดหา/สั่งเพิ่ม</div></div>';
   }
-  if(data && data.error){ $('cmpResult').innerHTML='<div class="msg err">เทียบรุ่นไม่สำเร็จ: '+esc(data.error)+'</div>'; return; }
-  renderCompare(target, data||{}, byModel);
+
+  if(notStock.length){
+    html+='<div style="font-family:var(--mono);font-size:11px;letter-spacing:1px;color:var(--muted);margin:18px 0 10px">💡 AI แนะนำ (ยังไม่มีในสต็อก — ไว้จัดหา)</div>';
+    notStock.forEach(e=>{
+      const warn=subWarn(target, e.model, e.note);
+      html+='<div class="cmp-card" style="opacity:.92"><div class="cmp-head"><div><div class="cmp-model">'+esc(e.model)+'</div>'
+        +'<div class="cmp-sub">'+esc(e.brand||'')+'</div></div><span class="verdict '+(warn?'no':'partial')+'">'+(warn?'⚠️ ตรวจวงจร':'ไม่มีในสต็อก')+'</span></div>'
+        +(warn?('<div class="cmp-alert">⚠️ '+esc(warn)+'</div>'):'')
+        +(e.note?('<div class="cmp-diff"><b>ข้อสังเกตจาก AI</b>'+esc(e.note)+'</div>'):'')
+        +'<div style="margin-top:10px">'+catBtn(e.brand, e.model)+'</div></div>';
+    });
+  }
+
+  html+='<div class="cmp-disclaimer">⚠️ AI ใช้ช่วย “คัดตัวเทียบ + เช็คสต็อก” เท่านั้น ข้อสังเกตเรื่องจุดต่างอาจคลาดเคลื่อน '
+      +'<b>ให้ยึดตารางแคตตาล็อกจริง (กดปุ่มเปิดแคตตาล็อก) เป็นคำตอบสุดท้ายเสมอ</b> โดยเฉพาะงานความปลอดภัย</div>';
+  $('cmpResult').innerHTML=html;
 }
 
 function verdictClass(v){
@@ -1121,9 +1282,9 @@ function verdictClass(v){
   return ['ok','แทนได้'];
 }
 
-function renderCompare(target, data, byModel){
+function renderCompare(target, data, byModel, notice){
   const results=Array.isArray(data.results)?data.results:[];
-  let html='';
+  let html=notice||'';
   html+='<div class="cmp-target"><div class="lbl">รุ่นที่ต้องการ</div><div class="tv">'+esc(target)+'</div>'
       + (data.target_understood?('<div class="desc">'+esc(data.target_understood)+'</div>'):'')+'</div>';
   if(data.summary) html+='<div class="cmp-summary">'+esc(data.summary)+'</div>';
